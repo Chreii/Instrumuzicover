@@ -309,14 +309,201 @@ const initialPerformances = [
   },
 ];
 
+const TrackWaveform = ({ 
+  audioUrl, 
+  isPlaying, 
+  isMuted, 
+  currentTime, 
+  duration,
+  onSeek
+}: { 
+  audioUrl: string; 
+  isPlaying: boolean; 
+  isMuted: boolean; 
+  currentTime: number; 
+  duration: number;
+  onSeek?: (time: number) => void;
+}) => {
+  const [peaks, setPeaks] = useState<number[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const animationRef = useRef<number>(0);
+
+  useEffect(() => {
+    const fetchAndProcessAudio = async () => {
+      try {
+        setIsLoading(true);
+        const response = await fetch(audioUrl);
+        const arrayBuffer = await response.arrayBuffer();
+        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+        
+        const channelData = audioBuffer.getChannelData(0);
+        const numBars = 100;
+        const samplesPerPixel = Math.floor(channelData.length / numBars);
+        const extractedPeaks = [];
+        
+        for (let i = 0; i < numBars; i++) {
+          const start = i * samplesPerPixel;
+          const end = start + samplesPerPixel;
+          let max = 0;
+          for (let j = start; j < end; j++) {
+            const abs = Math.abs(channelData[j]);
+            if (abs > max) max = abs;
+          }
+          extractedPeaks.push(max);
+        }
+        
+        const maxPeak = Math.max(...extractedPeaks);
+        // Use a minimum reference for normalization to avoid boosting silence/noise floor
+        const normalizationFactor = Math.max(maxPeak, 0.1); 
+        const normalizedPeaks = extractedPeaks.map(p => p / normalizationFactor);
+        
+        setPeaks(normalizedPeaks);
+        setIsLoading(false);
+        await audioContext.close();
+      } catch (error) {
+        console.error("Error generating waveform:", error);
+        // Fallback to generic peaks if fetch/decode fails
+        const fallbackPeaks = Array.from({ length: 100 }, () => 0.2 + Math.random() * 0.8);
+        setPeaks(fallbackPeaks);
+        setIsLoading(false);
+      }
+    };
+
+    if (audioUrl) {
+      fetchAndProcessAudio();
+    }
+  }, [audioUrl]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const updateSize = () => {
+      const container = canvas.parentElement;
+      if (container) {
+        const dpr = window.devicePixelRatio || 1;
+        const rect = container.getBoundingClientRect();
+        canvas.width = rect.width * dpr;
+        canvas.height = 48 * dpr;
+        canvas.style.width = `${rect.width}px`;
+        canvas.style.height = `48px`;
+      }
+    };
+
+    updateSize();
+    window.addEventListener('resize', updateSize);
+    return () => window.removeEventListener('resize', updateSize);
+  }, []);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || peaks.length === 0) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let animationId: number;
+    
+    const draw = (time: number) => {
+      const dpr = window.devicePixelRatio || 1;
+      const width = canvas.width / dpr;
+      const height = canvas.height / dpr;
+      const barWidth = width / peaks.length;
+      const progress = duration > 0 ? currentTime / duration : 0;
+      
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, width, height);
+      
+      peaks.forEach((peak, i) => {
+        const x = i * barWidth;
+        const isPlayed = (i / peaks.length) < progress;
+        
+        // Random-looking but consistent animation for each bar
+        let animFactor = 1;
+        // Only animate if playing, not muted, bar is played, and bar has significant sound (peak > 0.05)
+        // This higher threshold prevents low-level noise or normalized silence from animating
+        if (isPlaying && !isMuted && isPlayed && peak > 0.05) {
+          const speed = 0.01;
+          // Use a combination of sine waves with different frequencies to simulate randomness
+          const noise = Math.sin(time * speed + i) * 0.3 + 
+                        Math.sin(time * speed * 1.5 + i * 2) * 0.2;
+          animFactor = 0.8 + noise;
+        } else {
+          // Static bars for silence or unplayed parts
+          animFactor = 1;
+        }
+
+        const barHeight = Math.max(2, peak * height * 0.85 * animFactor);
+        const y = (height - barHeight) / 2;
+        
+        ctx.fillStyle = isPlayed ? '#10b981' : '#3f3f46'; // emerald-500 or zinc-700
+        
+        // Rounded bars
+        const radius = 1;
+        ctx.beginPath();
+        ctx.roundRect(x + 1, y, barWidth - 2, barHeight, radius);
+        ctx.fill();
+      });
+
+      // Playhead line - purple and sharp
+      const playheadX = progress * width;
+      
+      ctx.strokeStyle = '#a855f7'; // purple-500
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(playheadX, 0);
+      ctx.lineTo(playheadX, height);
+      ctx.stroke();
+
+      animationId = requestAnimationFrame(draw);
+    };
+
+    animationId = requestAnimationFrame(draw);
+    return () => cancelAnimationFrame(animationId);
+  }, [peaks, isPlaying, isMuted, currentTime, duration]);
+
+  const handleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!onSeek || !canvasRef.current || duration <= 0) return;
+    const rect = canvasRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const seekProgress = x / rect.width;
+    onSeek(seekProgress * duration);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="w-full h-12 flex items-center justify-center gap-1">
+        {[...Array(8)].map((_, i) => (
+          <motion.div
+            key={i}
+            animate={{ height: [4, 24, 4] }}
+            transition={{ repeat: Infinity, duration: 0.8, delay: i * 0.1 }}
+            className="w-1 bg-emerald-500/30 rounded-full"
+          />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <canvas 
+      ref={canvasRef} 
+      onClick={handleClick}
+      className="w-full h-12 cursor-pointer"
+    />
+  );
+};
+
 const getInstrumentIcon = (instrument: string | undefined) => {
-  if (!instrument) return <Music className="w-3.5 h-3.5" />;
+  if (!instrument) return <Music className="w-7 h-7 text-emerald-500" />;
   const lower = instrument.toLowerCase();
-  if (lower.includes('guitar') || lower.includes('bass') || lower.includes('fingerstyle')) return <Guitar className="w-3.5 h-3.5" />;
-  if (lower.includes('drum')) return <Drum className="w-3.5 h-3.5" />;
-  if (lower.includes('vocal')) return <Mic2 className="w-3.5 h-3.5" />;
-  if (lower.includes('piano')) return <Piano className="w-3.5 h-3.5" />;
-  return <Music className="w-3.5 h-3.5" />;
+  if (lower.includes('guitar') || lower.includes('bass') || lower.includes('fingerstyle')) return <Guitar className="w-7 h-7 text-emerald-500" />;
+  if (lower.includes('drum')) return <Drum className="w-7 h-7 text-emerald-500" />;
+  if (lower.includes('vocal')) return <Mic2 className="w-7 h-7 text-emerald-500" />;
+  if (lower.includes('piano')) return <Piano className="w-7 h-7 text-emerald-500" />;
+  return <Music className="w-7 h-7 text-emerald-500" />;
 };
 
 const getDifficultyColor = (difficulty: string | undefined) => {
@@ -1173,6 +1360,7 @@ const PlaylistPage = () => {
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
   const [trackVolumes, setTrackVolumes] = useState<Record<string, number>>({});
   const [trackMutes, setTrackMutes] = useState<Record<string, boolean>>({});
+  const [soloedTracks, setSoloedTracks] = useState<Record<string, boolean>>({});
 
   const audioRefs = useRef<Record<string, HTMLAudioElement>>({});
 
@@ -1233,16 +1421,49 @@ const PlaylistPage = () => {
   // Volume/Mute Sync
   useEffect(() => {
     if (!currentItem) return;
+    const isAnySoloed = Object.values(soloedTracks).some(v => v);
+    
     currentTracks.forEach(track => {
       const audio = audioRefs.current[track.id];
       if (audio) {
         const masterVol = isMuted ? 0 : volume;
-        const trackMuted = trackMutes[track.id] || false;
+        const isMutedManually = trackMutes[track.id] || false;
+        const isSoloed = soloedTracks[track.id] || false;
+        
+        // If any track is soloed, only soloed tracks are audible.
+        // If no tracks are soloed, all tracks are audible (unless manually muted).
+        const isAudible = !isMutedManually && (isAnySoloed ? isSoloed : true);
+        
         const trackVol = trackVolumes[track.id] !== undefined ? trackVolumes[track.id] : (track.defaultVolume !== undefined ? track.defaultVolume : 1);
-        audio.volume = trackMuted ? 0 : (masterVol * trackVol);
+        audio.volume = isAudible ? (masterVol * trackVol) : 0;
       }
     });
-  }, [volume, isMuted, trackVolumes, trackMutes, currentItem, currentTracks]);
+  }, [volume, isMuted, trackVolumes, trackMutes, soloedTracks, currentItem, currentTracks]);
+
+  // Drift Sync
+  useEffect(() => {
+    if (!isPlaying || currentTracks.length <= 1) return;
+
+    const syncInterval = setInterval(() => {
+      const primaryTrack = currentTracks[0];
+      const primaryAudio = audioRefs.current[primaryTrack.id];
+      if (!primaryAudio) return;
+
+      const primaryTime = primaryAudio.currentTime;
+
+      currentTracks.slice(1).forEach(track => {
+        const audio = audioRefs.current[track.id];
+        if (audio) {
+          const drift = Math.abs(audio.currentTime - primaryTime);
+          if (drift > 0.05) { // Sync if drift is more than 50ms
+            audio.currentTime = primaryTime;
+          }
+        }
+      });
+    }, 1000); // Check every second
+
+    return () => clearInterval(syncInterval);
+  }, [isPlaying, currentTracks]);
 
   const handlePlayPause = () => {
     if (currentSongIndex === null && playbackQueue.length > 0) {
@@ -1257,9 +1478,17 @@ const PlaylistPage = () => {
     if (currentSongIndex !== null && currentSongIndex < playbackQueue.length - 1) {
       setCurrentSongIndex(currentSongIndex + 1);
       setIsPlaying(true);
-    } else if (playbackQueue.length > 0) {
-      setCurrentSongIndex(0);
-      setIsPlaying(true);
+    } else {
+      // End of playlist: stop
+      setIsPlaying(false);
+      setProgress(0);
+      currentTracks.forEach(track => {
+        const audio = audioRefs.current[track.id];
+        if (audio) {
+          audio.currentTime = 0;
+          audio.pause();
+        }
+      });
     }
   };
 
@@ -1358,24 +1587,8 @@ const PlaylistPage = () => {
     setTrackMutes(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const soloTrack = (trackId: string, tracksInGroup: any[]) => {
-    setTrackMutes(prev => {
-      const isCurrentlySoloed = tracksInGroup.every(t => t.id === trackId ? !prev[t.id] : prev[t.id]);
-      const newMutes = { ...prev };
-      
-      if (isCurrentlySoloed) {
-        // Un-solo: unmute all tracks in group
-        tracksInGroup.forEach(t => {
-          newMutes[t.id] = false;
-        });
-      } else {
-        // Solo: mute all except this one
-        tracksInGroup.forEach(t => {
-          newMutes[t.id] = t.id !== trackId;
-        });
-      }
-      return newMutes;
-    });
+  const toggleTrackSolo = (id: string) => {
+    setSoloedTracks(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
   const setTrackVolume = (id: string, vol: number) => {
@@ -1437,7 +1650,7 @@ const PlaylistPage = () => {
                     <div key={`group-${item.id}`} className="flex flex-col">
                       <div 
                         onClick={() => { setCurrentSongIndex(index); setIsPlaying(true); }}
-                        className={`flex items-center gap-4 p-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 cursor-pointer transition-colors ${isPlayingThis ? 'bg-emerald-50 dark:bg-emerald-900/10' : ''}`}
+                        className={`flex items-center gap-4 p-4 px-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 cursor-pointer transition-colors ${isPlayingThis ? 'bg-emerald-50 dark:bg-emerald-900/10' : ''}`}
                       >
                         <div className="w-10 h-10 flex-shrink-0 bg-zinc-100 dark:bg-zinc-800 rounded-xl flex items-center justify-center relative group">
                           {isPlayingThis && isPlaying ? (
@@ -1467,20 +1680,46 @@ const PlaylistPage = () => {
                       </div>
 
                       {isExpanded && (
-                        <div className="bg-zinc-50 dark:bg-zinc-800/30 border-t border-zinc-100 dark:border-zinc-800/50 px-4 py-2">
+                        <div className="bg-zinc-50 dark:bg-zinc-800/30 border-t border-zinc-100 dark:border-zinc-800/50 px-4 py-1">
                           {tracks.length === 0 ? (
-                            <p className="text-sm text-zinc-500 py-2 pl-14">No matching tracks found in Media.</p>
+                            <p className="text-sm text-zinc-500 py-2">No matching tracks found in Media.</p>
                           ) : (
                             tracks.map(track => (
-                              <div key={track.id} className="flex items-center gap-4 py-2 pl-14">
-                                <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300 flex-1 truncate">
-                                  {track.instrument || track.title || 'Track'}
-                                </span>
+                              <div key={track.id} className="flex items-center gap-4 py-1 px-4 hover:bg-zinc-100/50 dark:hover:bg-zinc-700/20 rounded-lg transition-colors">
+                                <div className="-ml-2">
+                                  {getInstrumentIcon(track.instrument || track.title || '')}
+                                </div>
+                                <div className="flex flex-col truncate w-40 flex-none ml-2">
+                                  <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">
+                                    {track.instrument || track.title || 'Track'}
+                                  </span>
+                                  <span className={`text-xs font-bold ${getDifficultyColor(track.difficulty)}`}>
+                                    {track.difficulty ? track.difficulty.charAt(0).toUpperCase() + track.difficulty.slice(1) : 'Unknown'}
+                                  </span>
+                                </div>
+                                <div className="flex-1 min-w-[120px] ml-1 mr-4">
+                                  {track.url && (
+                                    <TrackWaveform 
+                                      audioUrl={track.url}
+                                      isPlaying={isPlaying && isPlayingThis}
+                                      isMuted={trackMutes[track.id] || (Object.values(soloedTracks).some(v => v) && !soloedTracks[track.id])}
+                                      currentTime={isPlayingThis ? progress : 0}
+                                      duration={isPlayingThis ? duration : 0}
+                                      onSeek={(time) => {
+                                        setProgress(time);
+                                        currentTracks.forEach(t => {
+                                          const audio = audioRefs.current[t.id];
+                                          if (audio) audio.currentTime = time;
+                                        });
+                                      }}
+                                    />
+                                  )}
+                                </div>
                                 <div className="flex items-center gap-3">
                                   <button 
-                                    onClick={() => soloTrack(track.id, tracks)}
+                                    onClick={() => toggleTrackSolo(track.id)}
                                     className={`px-2 py-1 text-xs font-medium rounded-md transition-colors ${
-                                      tracks.every(t => t.id === track.id ? !trackMutes[t.id] : trackMutes[t.id])
+                                      soloedTracks[track.id]
                                         ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
                                         : 'bg-zinc-200 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-400 hover:bg-zinc-300 dark:hover:bg-zinc-600'
                                     }`}
@@ -1491,11 +1730,11 @@ const PlaylistPage = () => {
                                   <button 
                                     onClick={() => toggleTrackMute(track.id)}
                                     className={`px-2 py-1 text-xs font-medium rounded-md transition-colors ${
-                                      trackMutes[track.id]
+                                      (trackMutes[track.id] || (Object.values(soloedTracks).some(v => v) && !soloedTracks[track.id]))
                                         ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
                                         : 'bg-zinc-200 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-400 hover:bg-zinc-300 dark:hover:bg-zinc-600'
                                     }`}
-                                    title="Mute this track"
+                                    title={(Object.values(soloedTracks).some(v => v) && !soloedTracks[track.id]) ? "Muted by solo" : "Mute this track"}
                                   >
                                     M
                                   </button>
@@ -1506,15 +1745,7 @@ const PlaylistPage = () => {
                                     onChange={(e) => setTrackVolume(track.id, Number(e.target.value))}
                                     className="w-20 h-1.5 bg-zinc-200 dark:bg-zinc-700 rounded-full appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-emerald-500 [&::-webkit-slider-thumb]:rounded-full cursor-pointer"
                                   />
-                                  {isAdmin && (
-                                    <button
-                                      onClick={() => saveDefaultVolume(track.id, trackVolumes[track.id] !== undefined ? trackVolumes[track.id] : (track.defaultVolume !== undefined ? track.defaultVolume : 1))}
-                                      className="text-xs font-medium text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 ml-2"
-                                      title="Set current volume as default for this track"
-                                    >
-                                      Set Default
-                                    </button>
-                                  )}
+                                  {/* Set default volume removed */}
                                 </div>
                               </div>
                             ))
@@ -3567,6 +3798,24 @@ const MediaPage = () => {
     }
   };
 
+  const downloadMedia = async (url: string, title?: string) => {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = title || 'download';
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(blobUrl);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error("Download failed:", error);
+      alert("Failed to download media.");
+    }
+  };
+
   return (
     <div className="pt-24 pb-16 min-h-screen bg-white dark:bg-black transition-colors duration-300">
       <div className="max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8">
@@ -3755,8 +4004,7 @@ const MediaPage = () => {
                     )}
 
                     {/* Admin Menu Button */}
-                    {isAdmin && (
-                      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity media-menu-container">
+                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity media-menu-container">
                         <button 
                           onClick={(e) => {
                             e.stopPropagation();
@@ -3772,13 +4020,13 @@ const MediaPage = () => {
                             <button 
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setEditingMedia(img);
+                                downloadMedia(img.url, img.title);
                                 setActiveMenuId(null);
                               }}
                               className="w-full text-left px-4 py-2.5 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-900 dark:text-white text-xs font-medium transition-colors flex items-center gap-2"
                             >
-                              <Edit2 className="w-3.5 h-3.5 text-emerald-500" />
-                              Edit
+                              <Download className="w-3.5 h-3.5 text-emerald-500" />
+                              Download
                             </button>
                             {img.type?.startsWith('audio/') && (
                               <button 
@@ -3798,22 +4046,36 @@ const MediaPage = () => {
                                 {img.inPlaylist ? 'Remove from Playlist' : 'Add to Playlist'}
                               </button>
                             )}
-                            <button 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setDeletingMedia(img);
-                                setActiveMenuId(null);
-                              }}
-                              className="w-full text-left px-4 py-2.5 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-red-600 dark:text-red-500 text-xs font-medium transition-colors flex items-center gap-2"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                              Delete
-                            </button>
+                            {isAdmin && (
+                              <>
+                                <button 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingMedia(img);
+                                    setActiveMenuId(null);
+                                  }}
+                                  className="w-full text-left px-4 py-2.5 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-900 dark:text-white text-xs font-medium transition-colors flex items-center gap-2"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5 text-emerald-500" />
+                                  Edit
+                                </button>
+                                <button 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setDeletingMedia(img);
+                                    setActiveMenuId(null);
+                                  }}
+                                  className="w-full text-left px-4 py-2.5 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-red-600 dark:text-red-500 text-xs font-medium transition-colors flex items-center gap-2"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                  Delete
+                                </button>
+                              </>
+                            )}
                           </div>
                         )}
                       </div>
-                    )}
-                  </div>
+                    </div>
                   
                   {/* Always visible info - centered */}
                   <div className="px-1 text-center">
