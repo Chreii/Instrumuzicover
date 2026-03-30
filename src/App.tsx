@@ -1154,6 +1154,7 @@ const NewPerformanceSection = () => {
 };
 
 const PlaylistPage = () => {
+  const { isAdmin } = useContext(AuthContext);
   const [playlist, setPlaylist] = useState<any[]>([]);
   const [playlistGroups, setPlaylistGroups] = useState<any[]>([]);
   const [allAudio, setAllAudio] = useState<any[]>([]);
@@ -1237,7 +1238,7 @@ const PlaylistPage = () => {
       if (audio) {
         const masterVol = isMuted ? 0 : volume;
         const trackMuted = trackMutes[track.id] || false;
-        const trackVol = trackVolumes[track.id] !== undefined ? trackVolumes[track.id] : 1;
+        const trackVol = trackVolumes[track.id] !== undefined ? trackVolumes[track.id] : (track.defaultVolume !== undefined ? track.defaultVolume : 1);
         audio.volume = trackMuted ? 0 : (masterVol * trackVol);
       }
     });
@@ -1333,7 +1334,7 @@ const PlaylistPage = () => {
   };
 
   const handleAddGroup = async () => {
-    if (!newSongTitle || !newSongArtist) return;
+    if (!isAdmin || !newSongTitle || !newSongArtist) return;
     try {
       await addDoc(collection(db, 'playlist_groups'), {
         title: newSongTitle,
@@ -1357,8 +1358,37 @@ const PlaylistPage = () => {
     setTrackMutes(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
+  const soloTrack = (trackId: string, tracksInGroup: any[]) => {
+    setTrackMutes(prev => {
+      const isCurrentlySoloed = tracksInGroup.every(t => t.id === trackId ? !prev[t.id] : prev[t.id]);
+      const newMutes = { ...prev };
+      
+      if (isCurrentlySoloed) {
+        // Un-solo: unmute all tracks in group
+        tracksInGroup.forEach(t => {
+          newMutes[t.id] = false;
+        });
+      } else {
+        // Solo: mute all except this one
+        tracksInGroup.forEach(t => {
+          newMutes[t.id] = t.id !== trackId;
+        });
+      }
+      return newMutes;
+    });
+  };
+
   const setTrackVolume = (id: string, vol: number) => {
     setTrackVolumes(prev => ({ ...prev, [id]: vol }));
+  };
+
+  const saveDefaultVolume = async (trackId: string, vol: number) => {
+    if (!isAdmin) return;
+    try {
+      await updateDoc(doc(db, 'media', trackId), { defaultVolume: vol });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `media/${trackId}`);
+    }
   };
 
   return (
@@ -1374,20 +1404,24 @@ const PlaylistPage = () => {
               <p className="text-zinc-600 dark:text-zinc-400">Your curated collection of tracks</p>
             </div>
           </div>
-          <button
-            onClick={() => setIsAddModalOpen(true)}
-            className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl font-medium transition-colors shadow-sm"
-          >
-            <Plus className="w-5 h-5" />
-            <span>Add New Song</span>
-          </button>
+          {isAdmin && (
+            <button
+              onClick={() => setIsAddModalOpen(true)}
+              className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl font-medium transition-colors shadow-sm"
+            >
+              <Plus className="w-5 h-5" />
+              <span>Add New Song</span>
+            </button>
+          )}
         </div>
 
         {playbackQueue.length === 0 ? (
           <div className="text-center py-20 bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800">
             <ListMusic className="w-12 h-12 text-zinc-300 dark:text-zinc-700 mx-auto mb-4" />
             <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-2">Your playlist is empty</h3>
-            <p className="text-zinc-500 dark:text-zinc-400">Add songs from the Media page or create a new song group.</p>
+            <p className="text-zinc-500 dark:text-zinc-400">
+              Add songs from the Media page{isAdmin ? ' or create a new song group' : ''}.
+            </p>
           </div>
         ) : (
           <div className="bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 overflow-hidden shadow-sm">
@@ -1443,16 +1477,44 @@ const PlaylistPage = () => {
                                   {track.instrument || track.title || 'Track'}
                                 </span>
                                 <div className="flex items-center gap-3">
-                                  <button onClick={() => toggleTrackMute(track.id)} className="text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors">
-                                    {trackMutes[track.id] ? <VolumeX className="w-4 h-4 text-red-500" /> : <Volume2 className="w-4 h-4" />}
+                                  <button 
+                                    onClick={() => soloTrack(track.id, tracks)}
+                                    className={`px-2 py-1 text-xs font-medium rounded-md transition-colors ${
+                                      tracks.every(t => t.id === track.id ? !trackMutes[t.id] : trackMutes[t.id])
+                                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                                        : 'bg-zinc-200 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-400 hover:bg-zinc-300 dark:hover:bg-zinc-600'
+                                    }`}
+                                    title="Solo this track"
+                                  >
+                                    S
+                                  </button>
+                                  <button 
+                                    onClick={() => toggleTrackMute(track.id)}
+                                    className={`px-2 py-1 text-xs font-medium rounded-md transition-colors ${
+                                      trackMutes[track.id]
+                                        ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                                        : 'bg-zinc-200 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-400 hover:bg-zinc-300 dark:hover:bg-zinc-600'
+                                    }`}
+                                    title="Mute this track"
+                                  >
+                                    M
                                   </button>
                                   <input 
                                     type="range" 
                                     min="0" max="1" step="0.01"
-                                    value={trackVolumes[track.id] !== undefined ? trackVolumes[track.id] : 1}
+                                    value={trackVolumes[track.id] !== undefined ? trackVolumes[track.id] : (track.defaultVolume !== undefined ? track.defaultVolume : 1)}
                                     onChange={(e) => setTrackVolume(track.id, Number(e.target.value))}
                                     className="w-20 h-1.5 bg-zinc-200 dark:bg-zinc-700 rounded-full appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-emerald-500 [&::-webkit-slider-thumb]:rounded-full cursor-pointer"
                                   />
+                                  {isAdmin && (
+                                    <button
+                                      onClick={() => saveDefaultVolume(track.id, trackVolumes[track.id] !== undefined ? trackVolumes[track.id] : (track.defaultVolume !== undefined ? track.defaultVolume : 1))}
+                                      className="text-xs font-medium text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 ml-2"
+                                      title="Set current volume as default for this track"
+                                    >
+                                      Set Default
+                                    </button>
+                                  )}
                                 </div>
                               </div>
                             ))
