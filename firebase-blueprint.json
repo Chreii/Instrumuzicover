@@ -1,0 +1,77 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "A user of the application",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "The unique identifier for the user" },
+        "email": { "type": "string", "format": "email", "description": "The user's email address" },
+        "displayName": { "type": "string", "description": "The user's display name" },
+        "photoURL": { "type": "string", "format": "uri", "description": "The user's profile photo URL" },
+        "role": { "type": "string", "enum": ["user", "admin"], "description": "The user's role" }
+      },
+      "required": ["uid", "email"]
+    },
+    "Performance": {
+      "title": "Performance",
+      "description": "A music performance video metadata",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "description": "The title of the performance" },
+        "artist": { "type": "string", "description": "The artist name" },
+        "instrument": { "type": "string", "description": "The instrument played" },
+        "difficulty": { "type": "string", "description": "The difficulty level" },
+        "dateUploaded": { "type": "string", "description": "The date the performance was uploaded" },
+        "views": { "type": "integer", "description": "The number of views" },
+        "image": { "type": "string", "format": "uri", "description": "The thumbnail image URL" },
+        "youtubeUrl": { "type": "string", "format": "uri", "description": "The YouTube video URL" },
+        "userId": { "type": "string", "description": "The ID of the user who uploaded the performance" }
+      },
+      "required": ["title", "artist", "instrument", "difficulty", "userId"]
+    },
+    "Media": {
+      "title": "Media",
+      "description": "An uploaded image or audio file",
+      "type": "object",
+      "properties": {
+        "url": { "type": "string", "description": "The URL or base64 data of the media" },
+        "path": { "type": "string", "description": "The Firebase Storage path of the media" },
+        "date": { "type": "string", "description": "The date the media was uploaded" },
+        "type": { "type": "string", "description": "The MIME type of the media" },
+        "soundMediaId": { "type": "string", "description": "The ID of the associated sound media" }
+      },
+      "required": ["url", "date", "type"]
+    },
+    "PlaylistGroup": {
+      "title": "PlaylistGroup",
+      "description": "A grouped song in the playlist",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "description": "The title of the song" },
+        "artist": { "type": "string", "description": "The artist of the song" },
+        "userId": { "type": "string", "description": "The ID of the user who created the group" },
+        "createdAt": { "type": "string", "description": "Creation timestamp" }
+      },
+      "required": ["title", "artist", "userId"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile data"
+    },
+    "/performances/{performanceId}": {
+      "schema": "Performance",
+      "description": "Collection of music performances"
+    },
+    "/media/{mediaId}": {
+      "schema": "Media",
+      "description": "Collection of uploaded media files"
+    },
+    "/playlist_groups/{groupId}": {
+      "schema": "PlaylistGroup",
+      "description": "Collection of playlist groups"
+    }
+  }
+}
