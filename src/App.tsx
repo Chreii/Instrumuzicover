@@ -52,7 +52,8 @@ import {
   ListMusic,
   ChevronDown,
   ChevronUp,
-  Plus
+  Plus,
+  AlertTriangle
 } from 'lucide-react';
 import { ref, uploadBytes, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
 import { 
@@ -309,7 +310,7 @@ const initialPerformances = [
   },
 ];
 
-const TrackWaveform = ({ 
+const TrackWaveform = React.memo(({ 
   audioUrl, 
   isPlaying, 
   isMuted, 
@@ -327,7 +328,6 @@ const TrackWaveform = ({
   const [peaks, setPeaks] = useState<number[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const animationRef = useRef<number>(0);
 
   useEffect(() => {
     const fetchAndProcessAudio = async () => {
@@ -355,7 +355,6 @@ const TrackWaveform = ({
         }
         
         const maxPeak = Math.max(...extractedPeaks);
-        // Use a minimum reference for normalization to avoid boosting silence/noise floor
         const normalizationFactor = Math.max(maxPeak, 0.1); 
         const normalizedPeaks = extractedPeaks.map(p => p / normalizationFactor);
         
@@ -364,7 +363,6 @@ const TrackWaveform = ({
         await audioContext.close();
       } catch (error) {
         console.error("Error generating waveform:", error);
-        // Fallback to generic peaks if fetch/decode fails
         const fallbackPeaks = Array.from({ length: 100 }, () => 0.2 + Math.random() * 0.8);
         setPeaks(fallbackPeaks);
         setIsLoading(false);
@@ -404,64 +402,42 @@ const TrackWaveform = ({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    let animationId: number;
-    
-    const draw = (time: number) => {
+    const draw = () => {
       const dpr = window.devicePixelRatio || 1;
       const width = canvas.width / dpr;
       const height = canvas.height / dpr;
-      const barWidth = width / peaks.length;
+      const barSpacing = width / peaks.length;
       const progress = duration > 0 ? currentTime / duration : 0;
       
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, width, height);
       
       peaks.forEach((peak, i) => {
-        const x = i * barWidth;
-        const isPlayed = (i / peaks.length) < progress;
+        const x = Math.floor(i * barSpacing);
+        const nextX = Math.floor((i + 1) * barSpacing);
+        const barWidth = Math.max(1, nextX - x - 1);
         
-        // Random-looking but consistent animation for each bar
-        let animFactor = 1;
-        // Only animate if playing, not muted, bar is played, and bar has significant sound (peak > 0.05)
-        // This higher threshold prevents low-level noise or normalized silence from animating
-        if (isPlaying && !isMuted && isPlayed && peak > 0.05) {
-          const speed = 0.01;
-          // Use a combination of sine waves with different frequencies to simulate randomness
-          const noise = Math.sin(time * speed + i) * 0.3 + 
-                        Math.sin(time * speed * 1.5 + i * 2) * 0.2;
-          animFactor = 0.8 + noise;
-        } else {
-          // Static bars for silence or unplayed parts
-          animFactor = 1;
-        }
-
-        const barHeight = Math.max(2, peak * height * 0.85 * animFactor);
+        const isPlayed = (i / peaks.length) < progress;
+        const barHeight = Math.max(2, peak * height * 0.85);
         const y = (height - barHeight) / 2;
         
-        ctx.fillStyle = isPlayed ? '#10b981' : '#3f3f46'; // emerald-500 or zinc-700
-        
-        // Rounded bars
+        ctx.fillStyle = isPlayed ? '#10b981' : '#3f3f46';
         const radius = 1;
         ctx.beginPath();
-        ctx.roundRect(x + 1, y, barWidth - 2, barHeight, radius);
+        ctx.roundRect(x, y, barWidth, barHeight, radius);
         ctx.fill();
       });
 
-      // Playhead line - purple and sharp
-      const playheadX = progress * width;
-      
-      ctx.strokeStyle = '#a855f7'; // purple-500
+      const playheadX = Math.round(progress * width);
+      ctx.strokeStyle = '#a855f7';
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.moveTo(playheadX, 0);
       ctx.lineTo(playheadX, height);
       ctx.stroke();
-
-      animationId = requestAnimationFrame(draw);
     };
 
-    animationId = requestAnimationFrame(draw);
-    return () => cancelAnimationFrame(animationId);
+    draw();
   }, [peaks, isPlaying, isMuted, currentTime, duration]);
 
   const handleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -494,7 +470,7 @@ const TrackWaveform = ({
       className="w-full h-12 cursor-pointer"
     />
   );
-};
+});
 
 const getInstrumentIcon = (instrument: string | undefined) => {
   if (!instrument) return <Music className="w-7 h-7 text-emerald-500" />;
@@ -1340,6 +1316,91 @@ const NewPerformanceSection = () => {
   );
 };
 
+const TrackRow = React.memo(({ 
+  track, 
+  isPlaying, 
+  isMuted, 
+  currentTime, 
+  duration, 
+  onSeek, 
+  onSolo, 
+  onMute, 
+  onVolumeChange,
+  isSoloed,
+  volume
+}: { 
+  track: any, 
+  isPlaying: boolean, 
+  isMuted: boolean, 
+  currentTime: number, 
+  duration: number, 
+  onSeek: (time: number) => void,
+  onSolo: () => void,
+  onMute: () => void,
+  onVolumeChange: (vol: number) => void,
+  isSoloed: boolean,
+  volume: number
+}) => {
+  return (
+    <div className="flex items-center gap-4 py-1 px-4 hover:bg-zinc-100/50 dark:hover:bg-zinc-700/20 rounded-lg transition-colors">
+      <div className="-ml-2">
+        {getInstrumentIcon(track.instrument || track.title || '')}
+      </div>
+      <div className="flex flex-col truncate w-40 flex-none ml-2">
+        <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">
+          {track.instrument || track.title || 'Track'}
+        </span>
+        <span className={`text-xs font-bold ${getDifficultyColor(track.difficulty)}`}>
+          {track.difficulty ? track.difficulty.charAt(0).toUpperCase() + track.difficulty.slice(1) : 'Unknown'}
+        </span>
+      </div>
+      <div className="flex-1 min-w-[120px] ml-1 mr-4">
+        {track.url && (
+          <TrackWaveform 
+            audioUrl={track.url}
+            isPlaying={isPlaying}
+            isMuted={isMuted}
+            currentTime={currentTime}
+            duration={duration}
+            onSeek={onSeek}
+          />
+        )}
+      </div>
+      <div className="flex items-center gap-3">
+        <button 
+          onClick={onSolo}
+          className={`px-2 py-1 text-xs font-medium rounded-md transition-colors ${
+            isSoloed
+              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+              : 'bg-zinc-200 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-400 hover:bg-zinc-300 dark:hover:bg-zinc-600'
+          }`}
+          title="Solo this track"
+        >
+          S
+        </button>
+        <button 
+          onClick={onMute}
+          className={`px-2 py-1 text-xs font-medium rounded-md transition-colors ${
+            isMuted
+              ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+              : 'bg-zinc-200 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-400 hover:bg-zinc-300 dark:hover:bg-zinc-600'
+          }`}
+          title="Mute this track"
+        >
+          M
+        </button>
+        <input 
+          type="range" 
+          min="0" max="1" step="0.01"
+          value={volume}
+          onChange={(e) => onVolumeChange(Number(e.target.value))}
+          className="w-20 h-1.5 bg-zinc-200 dark:bg-zinc-700 rounded-full appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-emerald-500 [&::-webkit-slider-thumb]:rounded-full cursor-pointer"
+        />
+      </div>
+    </div>
+  );
+});
+
 const PlaylistPage = () => {
   const { isAdmin } = useContext(AuthContext);
   const [playlist, setPlaylist] = useState<any[]>([]);
@@ -1361,8 +1422,18 @@ const PlaylistPage = () => {
   const [trackVolumes, setTrackVolumes] = useState<Record<string, number>>({});
   const [trackMutes, setTrackMutes] = useState<Record<string, boolean>>({});
   const [soloedTracks, setSoloedTracks] = useState<Record<string, boolean>>({});
+  const [isSpamAlertOpen, setIsSpamAlertOpen] = useState(false);
+
+  const spamCounter = useRef<{ count: number, lastTime: number }>({ count: 0, lastTime: 0 });
+
+  const isAnySoloed = React.useMemo(() => Object.values(soloedTracks).some(v => v), [soloedTracks]);
 
   const audioRefs = useRef<Record<string, HTMLAudioElement>>({});
+
+  useEffect(() => {
+    setProgress(0);
+    setDuration(0);
+  }, [currentSongIndex]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -1405,24 +1476,38 @@ const PlaylistPage = () => {
 
   // Play/Pause Sync
   useEffect(() => {
-    if (!currentItem) return;
-    currentTracks.forEach(track => {
-      const audio = audioRefs.current[track.id];
-      if (audio) {
-        if (isPlaying) {
+    if (!currentItem || currentTracks.length === 0) return;
+    
+    if (isPlaying) {
+      // Use the primary track's time or current progress as the sync point
+      const primaryAudio = audioRefs.current[currentTracks[0].id];
+      const syncTime = primaryAudio ? primaryAudio.currentTime : progress;
+      
+      currentTracks.forEach(track => {
+        const audio = audioRefs.current[track.id];
+        if (audio) {
+          audio.currentTime = syncTime;
           audio.play().catch(e => console.error("Autoplay failed:", e));
-        } else {
+        }
+      });
+    } else {
+      currentTracks.forEach(track => {
+        const audio = audioRefs.current[track.id];
+        if (audio) {
           audio.pause();
         }
-      }
-    });
+      });
+    }
   }, [isPlaying, currentItem, currentTracks]);
 
   // Volume/Mute Sync
   useEffect(() => {
     if (!currentItem) return;
-    const isAnySoloed = Object.values(soloedTracks).some(v => v);
     
+    // Get primary time for syncing unmuted tracks
+    const primaryAudio = audioRefs.current[currentTracks[0]?.id];
+    const syncTime = primaryAudio ? primaryAudio.currentTime : progress;
+
     currentTracks.forEach(track => {
       const audio = audioRefs.current[track.id];
       if (audio) {
@@ -1435,35 +1520,69 @@ const PlaylistPage = () => {
         const isAudible = !isMutedManually && (isAnySoloed ? isSoloed : true);
         
         const trackVol = trackVolumes[track.id] !== undefined ? trackVolumes[track.id] : (track.defaultVolume !== undefined ? track.defaultVolume : 1);
-        audio.volume = isAudible ? (masterVol * trackVol) : 0;
+        const targetVol = isAudible ? (masterVol * trackVol) : 0;
+        
+        // Only update if values actually changed to prevent audio engine stress
+        const targetMuted = targetVol === 0;
+        if (audio.muted !== targetMuted) {
+          audio.muted = targetMuted;
+        }
+        if (Math.abs(audio.volume - targetVol) > 0.01) {
+          audio.volume = targetVol;
+        }
       }
     });
-  }, [volume, isMuted, trackVolumes, trackMutes, soloedTracks, currentItem, currentTracks]);
+  }, [volume, isMuted, trackVolumes, trackMutes, soloedTracks, currentItem, currentTracks, isAnySoloed]);
 
-  // Drift Sync
+  // Robust Multi-track Synchronization
   useEffect(() => {
     if (!isPlaying || currentTracks.length <= 1) return;
 
-    const syncInterval = setInterval(() => {
+    let animationId: number;
+    // Initialize to current time to prevent immediate sync on effect restart (e.g. when toggling solo/mute)
+    let lastSyncTime = performance.now();
+
+    const sync = (now: number) => {
+      // Check sync every 1500ms to minimize seeking interruptions
+      // Seeking is the primary cause of "static" or "clicks"
+      if (now - lastSyncTime < 1500) {
+        animationId = requestAnimationFrame(sync);
+        return;
+      }
+      lastSyncTime = now;
+
       const primaryTrack = currentTracks[0];
       const primaryAudio = audioRefs.current[primaryTrack.id];
-      if (!primaryAudio) return;
+      if (!primaryAudio || primaryAudio.paused) {
+        animationId = requestAnimationFrame(sync);
+        return;
+      }
 
       const primaryTime = primaryAudio.currentTime;
-
+      
       currentTracks.slice(1).forEach(track => {
         const audio = audioRefs.current[track.id];
-        if (audio) {
+        if (audio && !audio.seeking && !audio.paused) {
+          // Only sync audible tracks to prevent background seeking glitches
+          const isMutedManually = trackMutes[track.id] || false;
+          const isSoloed = soloedTracks[track.id] || false;
+          const isAudible = !isMutedManually && (isAnySoloed ? isSoloed : true);
+          
+          if (!isAudible) return;
+
           const drift = Math.abs(audio.currentTime - primaryTime);
-          if (drift > 0.05) { // Sync if drift is more than 50ms
+          // Relaxed threshold (200ms) for better stability and less static
+          if (drift > 0.2) {
             audio.currentTime = primaryTime;
           }
         }
       });
-    }, 1000); // Check every second
+      animationId = requestAnimationFrame(sync);
+    };
 
-    return () => clearInterval(syncInterval);
-  }, [isPlaying, currentTracks]);
+    animationId = requestAnimationFrame(sync);
+    return () => cancelAnimationFrame(animationId);
+  }, [isPlaying, currentTracks, trackMutes, soloedTracks, isAnySoloed]);
 
   const handlePlayPause = () => {
     if (currentSongIndex === null && playbackQueue.length > 0) {
@@ -1504,6 +1623,14 @@ const PlaylistPage = () => {
 
   const handleTimeUpdate = (e: React.SyntheticEvent<HTMLAudioElement>) => {
     const audio = e.currentTarget;
+    // Throttle progress updates to ~10Hz (100ms) to reduce React re-renders
+    // This significantly improves performance when many tracks are expanded
+    const now = Date.now();
+    if ((window as any)._lastProgressUpdate && now - (window as any)._lastProgressUpdate < 100) {
+      return;
+    }
+    (window as any)._lastProgressUpdate = now;
+    
     setProgress(audio.currentTime);
     setDuration(audio.duration || 0);
   };
@@ -1583,11 +1710,31 @@ const PlaylistPage = () => {
     setExpandedGroups(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
+  const checkSpam = () => {
+    const now = Date.now();
+    if (now - spamCounter.current.lastTime < 1000) {
+      spamCounter.current.count += 1;
+    } else {
+      spamCounter.current.count = 1;
+    }
+    spamCounter.current.lastTime = now;
+
+    if (spamCounter.current.count >= 6) {
+      setIsPlaying(false);
+      setIsSpamAlertOpen(true);
+      spamCounter.current.count = 0;
+      return true;
+    }
+    return false;
+  };
+
   const toggleTrackMute = (id: string) => {
+    if (checkSpam()) return;
     setTrackMutes(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
   const toggleTrackSolo = (id: string) => {
+    if (checkSpam()) return;
     setSoloedTracks(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
@@ -1685,69 +1832,26 @@ const PlaylistPage = () => {
                             <p className="text-sm text-zinc-500 py-2">No matching tracks found in Media.</p>
                           ) : (
                             tracks.map(track => (
-                              <div key={track.id} className="flex items-center gap-4 py-1 px-4 hover:bg-zinc-100/50 dark:hover:bg-zinc-700/20 rounded-lg transition-colors">
-                                <div className="-ml-2">
-                                  {getInstrumentIcon(track.instrument || track.title || '')}
-                                </div>
-                                <div className="flex flex-col truncate w-40 flex-none ml-2">
-                                  <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">
-                                    {track.instrument || track.title || 'Track'}
-                                  </span>
-                                  <span className={`text-xs font-bold ${getDifficultyColor(track.difficulty)}`}>
-                                    {track.difficulty ? track.difficulty.charAt(0).toUpperCase() + track.difficulty.slice(1) : 'Unknown'}
-                                  </span>
-                                </div>
-                                <div className="flex-1 min-w-[120px] ml-1 mr-4">
-                                  {track.url && (
-                                    <TrackWaveform 
-                                      audioUrl={track.url}
-                                      isPlaying={isPlaying && isPlayingThis}
-                                      isMuted={trackMutes[track.id] || (Object.values(soloedTracks).some(v => v) && !soloedTracks[track.id])}
-                                      currentTime={isPlayingThis ? progress : 0}
-                                      duration={isPlayingThis ? duration : 0}
-                                      onSeek={(time) => {
-                                        setProgress(time);
-                                        currentTracks.forEach(t => {
-                                          const audio = audioRefs.current[t.id];
-                                          if (audio) audio.currentTime = time;
-                                        });
-                                      }}
-                                    />
-                                  )}
-                                </div>
-                                <div className="flex items-center gap-3">
-                                  <button 
-                                    onClick={() => toggleTrackSolo(track.id)}
-                                    className={`px-2 py-1 text-xs font-medium rounded-md transition-colors ${
-                                      soloedTracks[track.id]
-                                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-                                        : 'bg-zinc-200 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-400 hover:bg-zinc-300 dark:hover:bg-zinc-600'
-                                    }`}
-                                    title="Solo this track"
-                                  >
-                                    S
-                                  </button>
-                                  <button 
-                                    onClick={() => toggleTrackMute(track.id)}
-                                    className={`px-2 py-1 text-xs font-medium rounded-md transition-colors ${
-                                      (trackMutes[track.id] || (Object.values(soloedTracks).some(v => v) && !soloedTracks[track.id]))
-                                        ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                                        : 'bg-zinc-200 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-400 hover:bg-zinc-300 dark:hover:bg-zinc-600'
-                                    }`}
-                                    title={(Object.values(soloedTracks).some(v => v) && !soloedTracks[track.id]) ? "Muted by solo" : "Mute this track"}
-                                  >
-                                    M
-                                  </button>
-                                  <input 
-                                    type="range" 
-                                    min="0" max="1" step="0.01"
-                                    value={trackVolumes[track.id] !== undefined ? trackVolumes[track.id] : (track.defaultVolume !== undefined ? track.defaultVolume : 1)}
-                                    onChange={(e) => setTrackVolume(track.id, Number(e.target.value))}
-                                    className="w-20 h-1.5 bg-zinc-200 dark:bg-zinc-700 rounded-full appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-emerald-500 [&::-webkit-slider-thumb]:rounded-full cursor-pointer"
-                                  />
-                                  {/* Set default volume removed */}
-                                </div>
-                              </div>
+                              <TrackRow
+                                key={track.id}
+                                track={track}
+                                isPlaying={isPlaying && isPlayingThis}
+                                isMuted={trackMutes[track.id] || (isAnySoloed && !soloedTracks[track.id])}
+                                currentTime={isPlayingThis ? progress : 0}
+                                duration={isPlayingThis ? duration : 0}
+                                isSoloed={soloedTracks[track.id] || false}
+                                volume={trackVolumes[track.id] !== undefined ? trackVolumes[track.id] : (track.defaultVolume !== undefined ? track.defaultVolume : 1)}
+                                onSeek={(time) => {
+                                  setProgress(time);
+                                  currentTracks.forEach(t => {
+                                    const audio = audioRefs.current[t.id];
+                                    if (audio) audio.currentTime = time;
+                                  });
+                                }}
+                                onSolo={() => toggleTrackSolo(track.id)}
+                                onMute={() => toggleTrackMute(track.id)}
+                                onVolumeChange={(vol) => setTrackVolume(track.id, vol)}
+                              />
                             ))
                           )}
                         </div>
@@ -1935,6 +2039,8 @@ const PlaylistPage = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {isSpamAlertOpen && <SpamAlertModal onClose={() => setIsSpamAlertOpen(false)} />}
     </div>
   );
 };
@@ -1947,6 +2053,33 @@ const AboutPage = () => {
   return (
     <div className="pt-20">
       <About />
+    </div>
+  );
+};
+
+const SpamAlertModal = ({ onClose }: { onClose: () => void }) => {
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 p-4" onClick={onClose}>
+      <motion.div 
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        className="bg-white dark:bg-zinc-900 rounded-2xl p-8 max-w-md w-full relative text-center" 
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="w-16 h-16 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
+          <AlertTriangle className="w-8 h-8 text-amber-600 dark:text-amber-400" />
+        </div>
+        <h2 className="text-2xl font-bold text-zinc-900 dark:text-white mb-4">Playback Interrupted</h2>
+        <p className="text-zinc-600 dark:text-zinc-400 mb-8 leading-relaxed">
+          Rapidly toggling tracks can disrupt the synchronization. We've paused playback to ensure everything stays in time. Please wait a moment before resuming.
+        </p>
+        <button 
+          onClick={onClose}
+          className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-all shadow-lg shadow-emerald-600/20"
+        >
+          Got it
+        </button>
+      </motion.div>
     </div>
   );
 };
@@ -2550,8 +2683,10 @@ const VideoPlayerModal = ({ videos, initialIndex, onClose, onView }: { videos: a
 
   // Sync audio with video drift
   useEffect(() => {
-    // We use a faster interval to catch drift during playback.
-    const intervalId = setInterval(() => {
+    if (!playerRef.current) return;
+
+    let animationId: number;
+    const sync = () => {
       if (playerRef.current && typeof playerRef.current.getPlayerState === 'function') {
         const playerState = playerRef.current.getPlayerState();
         const videoTime = playerRef.current.getCurrentTime();
@@ -2559,23 +2694,26 @@ const VideoPlayerModal = ({ videos, initialIndex, onClose, onView }: { videos: a
         if (playerState === 1) { // PLAYING
           audiosRef.current.forEach((audio) => {
             const drift = Math.abs(videoTime - audio.currentTime);
-            if (drift > 0.1) { // Reduced threshold to 0.1 seconds for tighter sync
+            // Tightened threshold to 0.02 seconds for 100% synchronization
+            if (drift > 0.02) {
               audio.currentTime = videoTime;
             }
           });
         }
         
         // Check for unmute
-        if (playerRef.current && typeof playerRef.current.isMuted === 'function') {
+        if (typeof playerRef.current.isMuted === 'function') {
           const isVideoMuted = playerRef.current.isMuted();
           if (!isVideoMuted && playingAudiosRef.current.length > 0) {
             muteRelatedAudio();
           }
         }
       }
-    }, 100); // Increased frequency to 100ms
+      animationId = requestAnimationFrame(sync);
+    };
 
-    return () => clearInterval(intervalId);
+    animationId = requestAnimationFrame(sync);
+    return () => cancelAnimationFrame(animationId);
   }, []);
 
   const handleVersionSwitch = (newIdx: number) => {
@@ -3500,6 +3638,7 @@ const MediaPage = () => {
   const [selectedImage, setSelectedImage] = useState<{url: string, type: string, title?: string, artist?: string, difficulty?: string, instrument?: string, inPlaylist?: boolean} | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [isCopying, setIsCopying] = useState(false);
   const [showUploadOptions, setShowUploadOptions] = useState(false);
   const [uploadType, setUploadType] = useState<'image' | 'audio' | 'sheet' | null>(null);
@@ -3625,6 +3764,7 @@ const MediaPage = () => {
     }
     setIsUploading(true);
     setUploadStatus("Preparing upload...");
+    setUploadProgress(0);
     setShowDetailsModal(false); // Close modal immediately
     
     try {
@@ -3653,17 +3793,35 @@ const MediaPage = () => {
             resourceType = 'raw';
           }
           
-          const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudinaryConfig.cloudName}/${resourceType}/upload`, {
-            method: 'POST',
-            body: formData
+          const xhr = new XMLHttpRequest();
+          xhr.open('POST', `https://api.cloudinary.com/v1_1/${cloudinaryConfig.cloudName}/${resourceType}/upload`);
+          
+          xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) {
+              const percentComplete = Math.round((e.loaded / e.total) * 100);
+              setUploadProgress(percentComplete);
+            }
+          };
+
+          const promise = new Promise((resolve, reject) => {
+            xhr.onload = () => {
+              if (xhr.status >= 200 && xhr.status < 300) {
+                resolve(JSON.parse(xhr.responseText));
+              } else {
+                try {
+                  const errorData = JSON.parse(xhr.responseText);
+                  reject(new Error(errorData.error?.message || 'Cloudinary upload failed'));
+                } catch (e) {
+                  reject(new Error('Cloudinary upload failed'));
+                }
+              }
+            };
+            xhr.onerror = () => reject(new Error('Cloudinary upload failed due to network error'));
           });
+
+          xhr.send(formData);
+          const data: any = await promise;
           
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error?.message || 'Cloudinary upload failed');
-          }
-          
-          const data = await response.json();
           downloadURL = data.secure_url;
           storagePath = `cloudinary/${data.public_id}`;
           console.log("Cloudinary upload successful:", downloadURL);
@@ -3679,12 +3837,29 @@ const MediaPage = () => {
         console.log(`Starting Firebase upload for ${file.name}... Size: ${file.size} bytes, Type: ${file.type}`);
         storagePath = `media/${Date.now()}_${file.name}`;
         const storageRef = ref(storage, storagePath);
-        const snapshot = await uploadBytes(storageRef, file);
+        
+        const uploadTask = uploadBytesResumable(storageRef, file);
+        
+        const promise = new Promise<string>((resolve, reject) => {
+          uploadTask.on('state_changed', 
+            (snapshot) => {
+              const progress = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
+              setUploadProgress(progress);
+            }, 
+            (error) => reject(error), 
+            async () => {
+              const url = await getDownloadURL(uploadTask.snapshot.ref);
+              resolve(url);
+            }
+          );
+        });
+        
+        downloadURL = await promise;
         console.log("Firebase upload completed.");
-        downloadURL = await getDownloadURL(snapshot.ref);
       }
       
       setUploadStatus(`Saving to database...`);
+      setUploadProgress(null);
       
       try {
         await addDoc(collection(db, 'media'), {
@@ -3708,6 +3883,7 @@ const MediaPage = () => {
     } finally {
       setIsUploading(false);
       setUploadStatus(null);
+      setUploadProgress(null);
       setPendingFile(null);
       setUploadType(null);
       setShowDetailsModal(false);
@@ -3842,8 +4018,14 @@ const MediaPage = () => {
                 className="transition-all hover:scale-105 hover:opacity-90 active:scale-95 disabled:opacity-50 disabled:hover:scale-100 disabled:active:scale-100"
               >
                 {isUploading ? (
-                  <div className="flex items-center gap-2 bg-emerald-600 text-white px-8 py-4 rounded-full font-bold">
-                    <Loader2 className="w-5 h-5 animate-spin" /> {uploadStatus || 'Uploading...'}
+                  <div className="flex items-center gap-2 bg-emerald-600 text-white px-8 py-4 rounded-full font-bold min-w-[200px] justify-center">
+                    <Loader2 className="w-5 h-5 animate-spin" /> 
+                    <div className="flex flex-col items-start leading-tight">
+                      <span>{uploadStatus || 'Uploading...'}</span>
+                      {uploadProgress !== null && (
+                        <span className="text-xs opacity-80">{uploadProgress}% complete</span>
+                      )}
+                    </div>
                   </div>
                 ) : (
                   <img src="https://i.ibb.co/dshZr7GS/Upload.png" alt="Upload Media" className="h-14 w-auto" referrerPolicy="no-referrer" />

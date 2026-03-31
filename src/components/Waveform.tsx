@@ -12,7 +12,7 @@ export const Waveform = ({ isPlaying, progress, duration }: { isPlaying: boolean
           key={i}
           className={`w-1 rounded-full ${isPlaying ? 'bg-emerald-500' : 'bg-zinc-300 dark:bg-zinc-700'}`}
           initial={{ height: `${h}%` }}
-          animate={isPlaying ? { height: [`${h}%`, `${Math.max(20, Math.min(90, h + (Math.random() * 20 - 10)))}%`] } : {}}
+          animate={isPlaying ? { height: [`${h}%`, `${h}%`] } : {}}
           transition={{ repeat: Infinity, duration: 0.5, ease: "easeInOut" }}
         />
       ))}
