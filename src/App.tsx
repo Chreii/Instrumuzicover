@@ -53,6 +53,7 @@ import {
   ChevronDown,
   ChevronUp,
   Plus,
+  PlusCircle,
   AlertTriangle
 } from 'lucide-react';
 import { ref, uploadBytes, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
@@ -83,6 +84,12 @@ import {
   increment
 } from './firebase';
 
+import { EditableSection } from './components/EditableSection';
+import { SectionToolbox } from './components/SectionToolbox';
+import { MediaSelectorModal } from './components/MediaSelectorModal';
+import { EditableRow } from './components/EditableRow';
+import { ImageToolbox } from './components/ImageToolbox';
+
 const DIFFICULTIES = ['Beginner', 'Easy', 'Intermediate', 'Advanced', 'Expert'];
 const INSTRUMENTS = [
   'Bass', 'Vocal', 'Drum Set', 'Piano', 'Piano Solo', 'Fingerstyle', 'Guitar Solo', 'Lead Guitar', 'Piano Cover', 'Instrumental', 'Rhythm Guitar', 'Acoustic Guitar'
@@ -92,6 +99,8 @@ interface AuthContextType {
   user: FirebaseUser | null;
   isAdmin: boolean;
   isAuthReady: boolean;
+  isEditMode: boolean;
+  setIsEditMode: (mode: boolean) => void;
   cloudinaryConfig: { cloudName: string; uploadPreset: string };
   saveCloudinaryConfig: (cloudName: string, uploadPreset: string) => void;
   login: (usernameOrEvent?: string | React.MouseEvent, password?: string) => Promise<void>;
@@ -100,12 +109,16 @@ interface AuthContextType {
   setShowLoginModal: (show: boolean) => void;
   showLoginSuccessModal: boolean;
   setShowLoginSuccessModal: (show: boolean) => void;
+  showExitConfirmation: boolean;
+  setShowExitConfirmation: (show: boolean) => void;
 }
 
 const AuthContext = React.createContext<AuthContextType>({ 
   user: null, 
   isAdmin: false,
   isAuthReady: false, 
+  isEditMode: false,
+  setIsEditMode: () => {},
   cloudinaryConfig: { cloudName: '', uploadPreset: '' },
   saveCloudinaryConfig: () => {},
   login: async (usernameOrEvent?: string | React.MouseEvent, password?: string) => {}, 
@@ -113,7 +126,9 @@ const AuthContext = React.createContext<AuthContextType>({
   showLoginModal: false,
   setShowLoginModal: () => {},
   showLoginSuccessModal: false,
-  setShowLoginSuccessModal: () => {}
+  setShowLoginSuccessModal: () => {},
+  showExitConfirmation: false,
+  setShowExitConfirmation: () => {}
 });
 
 // Error Boundary Component
@@ -472,14 +487,31 @@ const TrackWaveform = React.memo(({
   );
 });
 
-const getInstrumentIcon = (instrument: string | undefined) => {
-  if (!instrument) return <Music className="w-7 h-7 text-emerald-500" />;
+const formatInstrumentName = (instrument: string | undefined) => {
+  if (!instrument) return 'Track';
+  const formatted = instrument.replace(/\s*Guitar\s*/i, ' ').trim();
+  return formatted || instrument;
+};
+
+const getInstrumentSortWeight = (instrument: string | undefined) => {
+  const lower = (instrument || '').toLowerCase();
+  if (lower.includes('vocal')) return 1;
+  if (lower.includes('acoustic')) return 2;
+  if (lower.includes('bass')) return 3;
+  if (lower.includes('lead')) return 4;
+  if (lower.includes('rhythm')) return 5;
+  if (lower.includes('drum')) return 6;
+  return 99;
+};
+
+const getInstrumentIcon = (instrument: string | undefined, className: string = "w-4 h-4 text-emerald-500") => {
+  if (!instrument) return <Music className={className} />;
   const lower = instrument.toLowerCase();
-  if (lower.includes('guitar') || lower.includes('bass') || lower.includes('fingerstyle')) return <Guitar className="w-7 h-7 text-emerald-500" />;
-  if (lower.includes('drum')) return <Drum className="w-7 h-7 text-emerald-500" />;
-  if (lower.includes('vocal')) return <Mic2 className="w-7 h-7 text-emerald-500" />;
-  if (lower.includes('piano')) return <Piano className="w-7 h-7 text-emerald-500" />;
-  return <Music className="w-7 h-7 text-emerald-500" />;
+  if (lower.includes('guitar') || lower.includes('bass') || lower.includes('fingerstyle')) return <Guitar className={className} />;
+  if (lower.includes('drum')) return <Drum className={className} />;
+  if (lower.includes('vocal')) return <Mic2 className={className} />;
+  if (lower.includes('piano')) return <Piano className={className} />;
+  return <Music className={className} />;
 };
 
 const getDifficultyColor = (difficulty: string | undefined) => {
@@ -591,11 +623,11 @@ const Logo = ({ className = "w-14 h-14" }: { className?: string }) => {
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const { user, isAdmin, login, logout } = useContext(AuthContext);
+  const { user, isAdmin, isEditMode, setIsEditMode, login, logout, setShowExitConfirmation } = useContext(AuthContext);
   const location = useLocation();
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-[1000] bg-zinc-900/80 backdrop-blur-md border-b border-zinc-800 transition-colors duration-300">
+    <nav className="fixed top-0 left-0 right-0 z-[1000] bg-black/20 backdrop-blur-md border-b border-zinc-800/50 transition-colors duration-300">
       <div className="max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16 items-center">
           <div className="flex items-center gap-2">
@@ -619,6 +651,25 @@ const Navbar = () => {
               <Link to="/products" className={`text-sm font-medium transition-colors ${location.pathname === '/products' ? 'text-emerald-400 electric-card' : 'text-zinc-400 hover:text-emerald-400'}`}>Product</Link>
               <Link to="/contact" className={`text-sm font-medium transition-colors ${location.pathname === '/contact' ? 'text-emerald-400 electric-card' : 'text-zinc-400 hover:text-emerald-400'}`}>Contact</Link>
               <Link to="/about" className={`text-sm font-medium transition-colors ${location.pathname === '/about' ? 'text-emerald-400 electric-card' : 'text-zinc-400 hover:text-emerald-400'}`}>About</Link>
+              {isAdmin && (
+                <button 
+                  onClick={() => {
+                    if (isEditMode) {
+                      setShowExitConfirmation(true);
+                    } else {
+                      setIsEditMode(true);
+                    }
+                  }}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all ${
+                    isEditMode 
+                      ? 'bg-emerald-500/10 border-emerald-500 text-emerald-500' 
+                      : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:text-emerald-400'
+                  }`}
+                >
+                  <Edit2 className="w-4 h-4" />
+                  <span className="text-xs font-bold">{isEditMode ? 'Editing' : 'Edit Mode'}</span>
+                </button>
+              )}
             </div>
             {user ? (
               <div className="flex items-center gap-4">
@@ -678,6 +729,26 @@ const Navbar = () => {
           <Link to="/products" onClick={() => setIsOpen(false)} className="text-lg font-medium text-zinc-400">Product</Link>
           <Link to="/contact" onClick={() => setIsOpen(false)} className="text-lg font-medium text-zinc-400">Contact</Link>
           <Link to="/about" onClick={() => setIsOpen(false)} className="text-lg font-medium text-zinc-400">About</Link>
+          {isAdmin && (
+            <button 
+              onClick={() => { 
+                if (isEditMode) {
+                  setShowExitConfirmation(true);
+                } else {
+                  setIsEditMode(true);
+                }
+                setIsOpen(false); 
+              }}
+              className={`flex items-center justify-center gap-2 py-3 rounded-xl border transition-all ${
+                isEditMode 
+                  ? 'bg-emerald-500/10 border-emerald-500 text-emerald-500' 
+                  : 'bg-zinc-800 border-zinc-700 text-zinc-400'
+              }`}
+            >
+              <Edit2 className="w-5 h-5" />
+              <span className="font-bold">{isEditMode ? 'Editing Mode Active' : 'Enable Edit Mode'}</span>
+            </button>
+          )}
           {user ? (
             <div className="flex flex-col gap-4 pt-4 border-t border-zinc-800">
               <div className="flex items-center gap-3">
@@ -712,13 +783,11 @@ const Navbar = () => {
   );
 };
 
-const Hero = () => (
-  <section className="relative pt-24 pb-20 lg:pt-32 lg:pb-24 overflow-hidden bg-white dark:bg-black transition-colors duration-300">
-    <div className="absolute inset-0 -z-10">
-      <div className="absolute top-0 right-0 w-1/2 h-full bg-emerald-50/50 dark:bg-emerald-900/10 rounded-l-[100px] transform translate-x-1/4" />
-      <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-50 dark:bg-emerald-900/10 rounded-full blur-3xl opacity-60 transform -translate-x-1/2 translate-y-1/2" />
-    </div>
-    
+const Hero = ({ backgroundColor }: { backgroundColor?: string }) => (
+  <section 
+    className="relative pt-24 pb-20 lg:pt-32 lg:pb-24 overflow-hidden transition-colors duration-300"
+    style={{ backgroundColor: backgroundColor || 'transparent' }}
+  >
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
         <motion.div
@@ -767,7 +836,7 @@ const FeaturedProducts = () => {
   ];
 
   return (
-    <section id="products" className="py-16 bg-zinc-50 dark:bg-zinc-900 transition-colors duration-300">
+    <section id="products" className="py-16 bg-transparent transition-colors duration-300">
       <div className="max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-end mb-12">
           <div>
@@ -808,7 +877,7 @@ const FeaturedProducts = () => {
 };
 
 const About = () => (
-  <section id="about" className="py-16 bg-white dark:bg-black transition-colors duration-300">
+  <section id="about" className="py-16 bg-transparent transition-colors duration-300">
     <div className="max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8">
       <div className="grid grid-cols-2 gap-16 items-center">
         <div className="relative order-1">
@@ -856,7 +925,7 @@ const About = () => (
 );
 
 const Contact = () => (
-  <section id="contact" className="py-16 bg-white dark:bg-black transition-colors duration-300">
+  <section id="contact" className="py-16 bg-transparent transition-colors duration-300">
     <div className="max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8">
       <div className="bg-emerald-600 dark:bg-emerald-700 rounded-[40px] p-16 text-white overflow-hidden relative">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl transform translate-x-1/2 -translate-y-1/2" />
@@ -931,7 +1000,7 @@ const Footer = () => {
   const { isAdmin } = useContext(AuthContext);
   
   return (
-  <footer className="bg-white dark:bg-black border-t border-zinc-100 dark:border-zinc-800 pt-20 pb-10 transition-colors duration-300">
+  <footer className="bg-transparent border-t border-zinc-800/50 pt-20 pb-10 transition-colors duration-300">
     <div className="max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-12 mb-16">
         <div className="col-span-2">
@@ -997,53 +1066,31 @@ const Footer = () => {
   );
 };
 
-const HomePage = () => {
-  const location = useLocation();
-
-  useEffect(() => {
-    if (location.hash) {
-      const element = document.getElementById(location.hash.substring(1));
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth' });
-      }
-    } else {
-      window.scrollTo(0, 0);
-    }
-  }, [location]);
-
-  return (
-    <>
-      <Hero />
-      <NewPerformanceSection />
-    </>
-  );
-};
-
 const ProductsPage = () => {
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, []);
-
   return (
     <div className="pt-20">
-      <FeaturedProducts />
+      <DynamicEditablePage 
+        collectionName="products_sections"
+        fixedSections={[{ id: 'products-list', type: 'products-list', order: 0 }]}
+        renderExtraSection={(section) => section.type === 'products-list' && <FeaturedProducts />}
+      />
     </div>
   );
 };
 
 const ContactPage = () => {
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, []);
-
   return (
     <div className="pt-20">
-      <Contact />
+      <DynamicEditablePage 
+        collectionName="contact_sections"
+        fixedSections={[{ id: 'contact-form', type: 'contact-form', order: 0 }]}
+        renderExtraSection={(section) => section.type === 'contact-form' && <Contact />}
+      />
     </div>
   );
 };
 
-const NewPerformanceSection = () => {
+const NewPerformanceSection = ({ backgroundColor }: { backgroundColor?: string }) => {
   const [latestPerformance, setLatestPerformance] = useState<any>(null);
   const [selectedVideoIndex, setSelectedVideoIndex] = useState<number | null>(null);
   const [performances, setPerformances] = useState<any[]>([]);
@@ -1087,7 +1134,10 @@ const NewPerformanceSection = () => {
   if (!latestPerformance) return null;
 
   return (
-    <section className="pt-8 pb-16 bg-zinc-50 dark:bg-zinc-900 transition-colors duration-300">
+    <section 
+      className="pt-8 pb-16 transition-colors duration-300"
+      style={{ backgroundColor: backgroundColor || 'transparent' }}
+    >
       <div className="max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-center mb-12">
           <div className="text-center">
@@ -1139,8 +1189,8 @@ const NewPerformanceSection = () => {
             
             <div className="flex flex-wrap justify-center gap-3 mb-8">
               <div className="flex items-center gap-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                <span className="text-emerald-500">{getInstrumentIcon(latestPerformance.instrument)}</span>
-                {latestPerformance.instrument}
+                <span className="text-emerald-500">{getInstrumentIcon(latestPerformance.instrument, "w-5 h-5 text-emerald-500")}</span>
+                {formatInstrumentName(latestPerformance.instrument)}
               </div>
               <div className={`flex items-center gap-2 text-sm font-bold ${getDifficultyColor(latestPerformance.difficulty)}`}>
                 <DifficultyGauge difficulty={latestPerformance.difficulty} className="w-5 h-5" />
@@ -1189,6 +1239,10 @@ const NewPerformanceSection = () => {
               {performances.slice(1, 4).map((perf, idx) => (
                 <motion.div 
                   key={perf.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.5 }}
                   whileHover={{ y: -5 }}
                   onClick={() => setSelectedVideoIndex(performances.indexOf(perf))}
                   className="group cursor-pointer"
@@ -1210,7 +1264,7 @@ const NewPerformanceSection = () => {
                     <div className="flex justify-center gap-2">
                       <div className="flex items-center gap-1.5 text-sm font-medium text-emerald-500">
                         {getInstrumentIcon(perf.instrument)}
-                        {perf.instrument}
+                        {formatInstrumentName(perf.instrument)}
                       </div>
                       <div className={`flex items-center gap-1.5 text-sm font-bold ${getDifficultyColor(perf.difficulty)}`}>
                         <DifficultyGauge difficulty={perf.difficulty} className="w-4 h-4" />
@@ -1232,6 +1286,10 @@ const NewPerformanceSection = () => {
               {[...performances].sort((a, b) => (b.views || 0) - (a.views || 0)).slice(0, 3).map((perf, idx) => (
                 <motion.div 
                   key={perf.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.5 }}
                   whileHover={{ y: -5 }}
                   onClick={() => setSelectedVideoIndex(performances.indexOf(perf))}
                   className="group cursor-pointer"
@@ -1257,7 +1315,7 @@ const NewPerformanceSection = () => {
                     <div className="flex justify-center gap-2">
                       <div className="flex items-center gap-1.5 text-sm font-medium text-emerald-500">
                         {getInstrumentIcon(perf.instrument)}
-                        {perf.instrument}
+                        {formatInstrumentName(perf.instrument)}
                       </div>
                       <div className={`flex items-center gap-1.5 text-sm font-bold ${getDifficultyColor(perf.difficulty)}`}>
                         <DifficultyGauge difficulty={perf.difficulty} className="w-4 h-4" />
@@ -1316,6 +1374,721 @@ const NewPerformanceSection = () => {
   );
 };
 
+const DynamicEditablePage = ({ 
+  collectionName, 
+  fixedSections = [],
+  renderExtraSection
+}: { 
+  collectionName: string, 
+  fixedSections?: any[],
+  renderExtraSection?: (section: any) => React.ReactNode
+}) => {
+  const { isEditMode, setIsEditMode, isAdmin, showExitConfirmation, setShowExitConfirmation } = useContext(AuthContext);
+  const location = useLocation();
+  const [sections, setSections] = useState<any[]>([]);
+  const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null);
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [isMediaModalOpen, setIsMediaModalOpen] = useState(false);
+  const [targetSectionId, setTargetSectionId] = useState<string | null>(null);
+  const [targetRowIndex, setTargetRowIndex] = useState<number | undefined>();
+  const [targetSlotIndex, setTargetSlotIndex] = useState<number | undefined>();
+
+  const cloudinaryConfig = {
+    cloudName: localStorage.getItem('cloudinary_cloud_name') || '',
+    uploadPreset: localStorage.getItem('cloudinary_upload_preset') || ''
+  };
+
+  const handleAddRows = async (columnCount: number, sectionId?: string, position?: 'top' | 'bottom', referenceRowId?: string, rowCount: number = 1) => {
+    const targetId = sectionId || selectedSectionId;
+    if (!targetId || !isAdmin) return;
+    const section = sections.find(s => s.id === targetId);
+    if (!section) return;
+
+    try {
+      const sectionRef = doc(db, collectionName, targetId);
+      const finalRowCount = rowCount || 1;
+      const newRows = Array.from({ length: finalRowCount }).map(() => ({
+        id: Math.random().toString(36).substring(2, 9),
+        layout: `${columnCount}-col`,
+        items: [],
+        width: columnCount === 1 ? '30%' : '100%',
+        align: 'center'
+      }));
+
+      const currentRows = section.rows || [];
+      let updatedRows = [...currentRows];
+
+      if (referenceRowId) {
+        const refIndex = updatedRows.findIndex(r => r.id === referenceRowId);
+        if (refIndex !== -1) {
+          if (position === 'top') {
+            updatedRows.splice(refIndex, 0, ...newRows);
+          } else {
+            updatedRows.splice(refIndex + 1, 0, ...newRows);
+          }
+        }
+      } else {
+        if (position === 'top') {
+          updatedRows.unshift(...newRows);
+        } else {
+          updatedRows.push(...newRows);
+        }
+      }
+
+      await updateDoc(sectionRef, { 
+        rows: updatedRows,
+        type: 'dynamic'
+      });
+    } catch (error) {
+      console.error("Error updating layout:", error);
+    }
+  };
+
+  const handleAddItem = async (type: 'image' | 'video' | 'text', url?: string, rowIndex?: number, slotIndex?: number, initialContent?: any) => {
+    const targetId = targetSectionId || selectedSectionId;
+    if (!targetId || !isAdmin) return;
+    const section = sections.find(s => s.id === targetId);
+    if (!section) return;
+
+    try {
+      const sectionRef = doc(db, collectionName, targetId);
+      const itemUrl = url || (type === 'image' ? 'https://picsum.photos/seed/music/800/600' : '');
+      
+      const currentRows = section.rows || [];
+      let updatedRows = JSON.parse(JSON.stringify(currentRows));
+
+      const newItem = { 
+        id: Math.random().toString(36).substring(2, 9),
+        type, 
+        url: itemUrl,
+        heading: initialContent?.heading || '',
+        description: initialContent?.description || '',
+        align: 'center',
+        textColor: '#ffffff',
+        fontSize: 'base',
+        headingPosition: 'top',
+        ...initialContent
+      };
+
+      if (updatedRows.length === 0) {
+        updatedRows.push({
+          id: Math.random().toString(36).substring(2, 9),
+          layout: '1-col',
+          items: [newItem]
+        });
+      } else {
+        const targetRow = (rowIndex !== undefined && updatedRows[rowIndex]) ? updatedRows[rowIndex] : updatedRows[updatedRows.length - 1];
+        if (!targetRow.items) targetRow.items = [];
+        
+        if (slotIndex !== undefined) {
+          targetRow.items[slotIndex] = newItem;
+        } else {
+          targetRow.items.push(newItem);
+        }
+      }
+
+      await updateDoc(sectionRef, { 
+        rows: updatedRows,
+        type: 'dynamic'
+      });
+      setIsMediaModalOpen(false);
+      setTargetSectionId(null);
+    } catch (error) {
+      console.error(`Error adding ${type}:`, error);
+    }
+  };
+
+  const handleUpdateItem = async (updates: any) => {
+    if (!selectedItemId || !isAdmin) return;
+    
+    let targetSection: any = null;
+    let targetRowIndex: number = -1;
+    let targetItemIndex: number = -1;
+
+    for (const section of sections) {
+      if (!section.rows) continue;
+      for (let rIdx = 0; rIdx < section.rows.length; rIdx++) {
+        const row = section.rows[rIdx];
+        const iIdx = (row.items || []).findIndex((item: any) => item?.id === selectedItemId);
+        if (iIdx !== -1) {
+          targetSection = section;
+          targetRowIndex = rIdx;
+          targetItemIndex = iIdx;
+          break;
+        }
+      }
+      if (targetSection) break;
+    }
+
+    if (!targetSection) return;
+
+    try {
+      const sectionRef = doc(db, collectionName, targetSection.id);
+      const updatedRows = JSON.parse(JSON.stringify(targetSection.rows));
+      updatedRows[targetRowIndex].items[targetItemIndex] = {
+        ...updatedRows[targetRowIndex].items[targetItemIndex],
+        ...updates
+      };
+
+      await updateDoc(sectionRef, { rows: updatedRows });
+    } catch (error) {
+      console.error("Error updating item:", error);
+    }
+  };
+
+  const handleUpdateSection = async (updates: any) => {
+    const targetId = selectedSectionId;
+    if (!targetId || !isAdmin) return;
+    try {
+      const sectionRef = doc(db, collectionName, targetId);
+      await updateDoc(sectionRef, updates);
+    } catch (error) {
+      console.error("Error updating section:", error);
+    }
+  };
+
+  const handleUpdateRow = async (sectionId: string, rowIndex: number, updates: any) => {
+    if (!isAdmin) return;
+    try {
+      const section = sections.find(s => s.id === sectionId);
+      if (!section || !section.rows) return;
+      
+      const sectionRef = doc(db, collectionName, sectionId);
+      const updatedRows = JSON.parse(JSON.stringify(section.rows));
+      updatedRows[rowIndex] = { ...updatedRows[rowIndex], ...updates };
+      
+      await updateDoc(sectionRef, { rows: updatedRows });
+    } catch (error) {
+      console.error("Error updating row:", error);
+    }
+  };
+
+  const handleRemoveItem = async () => {
+    if (!selectedItemId || !isAdmin) return;
+    
+    let targetSection: any = null;
+    let targetRowIndex: number = -1;
+    let targetItemIndex: number = -1;
+
+    for (const section of sections) {
+      if (!section.rows) continue;
+      for (let rIdx = 0; rIdx < section.rows.length; rIdx++) {
+        const row = section.rows[rIdx];
+        const iIdx = (row.items || []).findIndex((item: any) => item?.id === selectedItemId);
+        if (iIdx !== -1) {
+          targetSection = section;
+          targetRowIndex = rIdx;
+          targetItemIndex = iIdx;
+          break;
+        }
+      }
+      if (targetSection) break;
+    }
+
+    if (!targetSection) return;
+
+    try {
+      const sectionRef = doc(db, collectionName, targetSection.id);
+      const updatedRows = JSON.parse(JSON.stringify(targetSection.rows));
+      updatedRows[targetRowIndex].items.splice(targetItemIndex, 1);
+
+      await updateDoc(sectionRef, { rows: updatedRows });
+      setSelectedItemId(null);
+    } catch (error) {
+      console.error("Error removing item:", error);
+    }
+  };
+
+  const handleDeleteRow = async (sectionId: string, rowIndex: number) => {
+    if (!isAdmin) return;
+    try {
+      const section = sections.find(s => s.id === sectionId);
+      if (!section || !section.rows) return;
+      
+      const sectionRef = doc(db, collectionName, sectionId);
+      const updatedRows = [...section.rows];
+      updatedRows.splice(rowIndex, 1);
+      
+      await updateDoc(sectionRef, { rows: updatedRows });
+    } catch (error) {
+      console.error("Error deleting row:", error);
+    }
+  };
+
+  const getSelectedItem = () => {
+    if (!selectedItemId) return null;
+    for (const section of sections) {
+      if (!section.rows) continue;
+      for (const row of section.rows) {
+        const item = (row.items || []).find((i: any) => i?.id === selectedItemId);
+        if (item) return item;
+      }
+    }
+    return null;
+  };
+
+  const handleRowDrop = (sectionId: string, rowIndex: number, data: any, position: string, slotIndex?: number) => {
+    if (data.type === 'layout') {
+      const section = sections.find(s => s.id === sectionId);
+      if (!section || !section.rows || !section.rows[rowIndex]) return;
+      const row = section.rows[rowIndex];
+      handleAddRows(data.value || 1, sectionId, position as any, row.id, data.rowCount);
+    } else if (data.type === 'action') {
+      window.dispatchEvent(new CustomEvent('section-drop', { 
+        detail: { 
+          id: sectionId,
+          type: data.type,
+          value: data.value,
+          rowIndex,
+          slotIndex,
+          position,
+          rowCount: data.rowCount
+        } 
+      }));
+    }
+  };
+
+  useEffect(() => {
+    const handleSectionDrop = (e: any) => {
+      if (!e.detail) return;
+      const { id, type, value, position, slotIndex, rowIndex, rowCount } = e.detail;
+      
+      if (type === 'layout') {
+        handleAddRows(value || 1, id, position, undefined, rowCount);
+      } else if (type === 'action') {
+        if (value === 'add-image') {
+          setTargetSectionId(id);
+          setTargetRowIndex(rowIndex);
+          setTargetSlotIndex(slotIndex);
+          setIsMediaModalOpen(true);
+        } else if (value === 'add-video') {
+          handleAddItem('video', '', rowIndex, slotIndex);
+        } else if (value === 'add-heading') {
+          handleAddItem('text', '', rowIndex, slotIndex, { heading: 'New Heading', headingSize: 48 });
+        } else if (value === 'add-description') {
+          handleAddItem('text', '', rowIndex, slotIndex, { description: 'Add your description text here...', descriptionSize: 18 });
+        }
+      }
+    };
+
+    window.addEventListener('section-drop', handleSectionDrop);
+    return () => window.removeEventListener('section-drop', handleSectionDrop);
+  }, [sections]);
+
+  useEffect(() => {
+    const q = query(collection(db, collectionName), orderBy('order', 'asc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const dbSections = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })) as any[];
+      
+      let finalSections = [...dbSections];
+
+      fixedSections.forEach(fixed => {
+        if (!dbSections.some(s => s.id === fixed.id || s.type === fixed.type)) {
+          finalSections.push(fixed);
+        }
+      });
+
+      setSections(finalSections.sort((a, b) => a.order - b.order));
+    }, (error) => {
+      console.error("Firestore snapshot error:", error);
+    });
+    return () => unsubscribe();
+  }, [collectionName]);
+
+  useEffect(() => {
+    if (location.hash) {
+      const element = document.getElementById(location.hash.substring(1));
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth' });
+      }
+    } else {
+      window.scrollTo(0, 0);
+    }
+  }, [location]);
+
+  const handleAddBelow = async (index: number) => {
+    if (!isAdmin) return;
+    
+    try {
+      const newOrder = sections[index].order + 1;
+      const batchPromises = [];
+      for (let i = index + 1; i < sections.length; i++) {
+        const s = sections[i];
+        const sectionRef = doc(db, collectionName, s.id);
+        batchPromises.push(updateDoc(sectionRef, { order: s.order + 1 }));
+      }
+      
+      await Promise.all(batchPromises);
+
+      const newSection = {
+        type: 'blank',
+        title: '',
+        content: '',
+        order: newOrder,
+        backgroundColor: 'transparent',
+        textColor: '#ffffff',
+        createdAt: new Date().toISOString(),
+        rows: []
+      };
+      
+      await addDoc(collection(db, collectionName), newSection);
+    } catch (error) {
+      console.error("Error adding section:", error);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!isAdmin) return;
+    try {
+      await deleteDoc(doc(db, collectionName, id));
+      if (selectedSectionId === id) setSelectedSectionId(null);
+    } catch (error) {
+      console.error("Error deleting section:", error);
+    }
+  };
+
+  const handleMoveUp = async (index: number) => {
+    if (index <= 0 || !isAdmin) return;
+    const current = sections[index];
+    const prev = sections[index - 1];
+
+    try {
+      const currentRef = doc(db, collectionName, current.id);
+      const prevRef = doc(db, collectionName, prev.id);
+      
+      const updates = [];
+      
+      const isCurrentFixed = fixedSections.some(f => f.id === current.id);
+      const isPrevFixed = fixedSections.some(f => f.id === prev.id);
+
+      if (isCurrentFixed) {
+        const { id, ...data } = current;
+        updates.push(setDoc(currentRef, { ...data, order: prev.order }));
+      } else {
+        updates.push(updateDoc(currentRef, { order: prev.order }));
+      }
+
+      if (isPrevFixed) {
+        const { id, ...data } = prev;
+        updates.push(setDoc(prevRef, { ...data, order: current.order }));
+      } else {
+        updates.push(updateDoc(prevRef, { order: current.order }));
+      }
+
+      await Promise.all(updates);
+    } catch (error) {
+      console.error("Error moving up:", error);
+    }
+  };
+
+  const handleMoveDown = async (index: number) => {
+    if (index >= sections.length - 1 || !isAdmin) return;
+    const current = sections[index];
+    const next = sections[index + 1];
+
+    try {
+      const currentRef = doc(db, collectionName, current.id);
+      const nextRef = doc(db, collectionName, next.id);
+      
+      const updates = [];
+
+      const isCurrentFixed = fixedSections.some(f => f.id === current.id);
+      const isNextFixed = fixedSections.some(f => f.id === next.id);
+
+      if (isCurrentFixed) {
+        const { id, ...data } = current;
+        updates.push(setDoc(currentRef, { ...data, order: next.order }));
+      } else {
+        updates.push(updateDoc(currentRef, { order: next.order }));
+      }
+
+      if (isNextFixed) {
+        const { id, ...data } = next;
+        updates.push(setDoc(nextRef, { ...data, order: current.order }));
+      } else {
+        updates.push(updateDoc(nextRef, { order: current.order }));
+      }
+
+      await Promise.all(updates);
+    } catch (error) {
+      console.error("Error moving down:", error);
+    }
+  };
+
+  const handleDuplicate = async (section: any) => {
+    if (!isAdmin) return;
+    try {
+      const { id, ...data } = section;
+      const newSection = {
+        ...data,
+        order: section.order + 0.5,
+        createdAt: new Date().toISOString()
+      };
+      await addDoc(collection(db, collectionName), newSection);
+    } catch (error) {
+      console.error("Error duplicating section:", error);
+    }
+  };
+
+  const handleMoveToPage = async (section: any, targetPage: string) => {
+    if (!isAdmin) return;
+    
+    let targetCollection = 'home_sections';
+    if (targetPage === '/performance') targetCollection = 'performance_sections';
+    else if (targetPage === '/playlist') targetCollection = 'playlist_sections';
+    else if (targetPage === '/products') targetCollection = 'products_sections';
+    else if (targetPage === '/about') targetCollection = 'about_sections';
+    else if (targetPage === '/contact') targetCollection = 'contact_sections';
+
+    try {
+      const { id, ...data } = section;
+      await addDoc(collection(db, targetCollection), {
+        ...data,
+        order: 999,
+        createdAt: new Date().toISOString()
+      });
+      await deleteDoc(doc(db, collectionName, id));
+      if (selectedSectionId === id) setSelectedSectionId(null);
+    } catch (error) {
+      console.error("Error moving to page:", error);
+    }
+  };
+
+  const handleColorChange = async (sectionId: string, color: string) => {
+    if (!isAdmin) return;
+    try {
+      const sectionRef = doc(db, collectionName, sectionId);
+      const isFixed = fixedSections.some(f => f.id === sectionId);
+      
+      if (isFixed) {
+        const section = sections.find(s => s.id === sectionId);
+        if (section) {
+          const { id, ...data } = section;
+          await setDoc(sectionRef, { ...data, backgroundColor: color });
+        }
+      } else {
+        await updateDoc(sectionRef, { backgroundColor: color });
+      }
+    } catch (error) {
+      console.error("Error changing color:", error);
+    }
+  };
+
+  return (
+    <div 
+      className="flex flex-col relative"
+      onClick={() => {
+        if (isEditMode) {
+          setSelectedSectionId(null);
+          setSelectedItemId(null);
+        }
+      }}
+    >
+      <div onClick={(e) => e.stopPropagation()}>
+        <SectionToolbox 
+          isOpen={isEditMode && selectedSectionId !== null && selectedItemId === null}
+          onClose={() => setSelectedSectionId(null)}
+          onAddRows={(colCount, rowCount) => handleAddRows(colCount, undefined, undefined, undefined, rowCount)}
+          onAddImage={() => {
+            setTargetSectionId(selectedSectionId);
+            setIsMediaModalOpen(true);
+          }}
+          onAddVideo={() => handleAddItem('video')}
+          section={sections.find(s => s.id === selectedSectionId)}
+          onUpdateSection={handleUpdateSection}
+        />
+
+        <ImageToolbox 
+          isOpen={isEditMode && selectedItemId !== null}
+          onClose={() => setSelectedItemId(null)}
+          item={getSelectedItem()}
+          onUpdate={handleUpdateItem}
+          onRemove={handleRemoveItem}
+        />
+
+        <MediaSelectorModal 
+          isOpen={isMediaModalOpen}
+          onClose={() => {
+            setIsMediaModalOpen(false);
+            setTargetSectionId(null);
+            setTargetRowIndex(undefined);
+            setTargetSlotIndex(undefined);
+          }}
+          onSelect={(url) => handleAddItem('image', url, targetRowIndex, targetSlotIndex)}
+          cloudinaryConfig={cloudinaryConfig}
+        />
+
+        <AnimatePresence>
+          {showExitConfirmation && (
+            <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 max-w-sm w-full shadow-2xl"
+              >
+                <div className="flex items-center gap-3 mb-4 text-emerald-400">
+                  <AlertTriangle className="w-6 h-6" />
+                  <h3 className="text-xl font-bold text-white">Exit Edit Mode?</h3>
+                </div>
+                <p className="text-zinc-400 mb-6 leading-relaxed">
+                  Your changes are automatically saved to the database. Are you sure you want to finish editing?
+                </p>
+                <div className="flex flex-col gap-3">
+                  <button 
+                    onClick={() => {
+                      setIsEditMode(false);
+                      setShowExitConfirmation(false);
+                      setSelectedSectionId(null);
+                      setSelectedItemId(null);
+                    }}
+                    className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl transition-colors"
+                  >
+                    Yes, Finish Editing
+                  </button>
+                  <button 
+                    onClick={() => setShowExitConfirmation(false)}
+                    className="w-full py-3 bg-zinc-800 hover:bg-zinc-700 text-white font-bold rounded-xl transition-colors"
+                  >
+                    Keep Editing
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {sections.map((section, index) => (
+        <div 
+          key={section.id} 
+          onClick={(e) => {
+            if (isEditMode) {
+              e.stopPropagation();
+              setSelectedSectionId(section.id);
+              setSelectedItemId(null);
+            }
+          }}
+          className={`relative transition-all ${isEditMode && selectedSectionId === section.id ? 'z-50' : ''}`}
+        >
+          <EditableSection 
+            id={section.id}
+            isEditMode={isEditMode}
+            isSelected={selectedSectionId === section.id && selectedItemId === null}
+            hideHighlight={selectedItemId !== null}
+            onAddBelow={() => handleAddBelow(index)}
+            onDelete={() => handleDelete(section.id)}
+            onMoveUp={index > 0 ? () => handleMoveUp(index) : undefined}
+            onMoveDown={index < sections.length - 1 ? () => handleMoveDown(index) : undefined}
+            onDuplicate={() => handleDuplicate(section)}
+            onMoveToPage={(page) => handleMoveToPage(section, page)}
+            onColorChange={(color) => handleColorChange(section.id, color)}
+          >
+            {section.type === 'hero' && <Hero backgroundColor={section.backgroundColor} />}
+            {section.type === 'new-perf' && <NewPerformanceSection backgroundColor={section.backgroundColor} />}
+            {section.type === 'text' && (
+              <section className="py-20 px-4" style={{ backgroundColor: section.backgroundColor }}>
+                <div className="max-w-4xl mx-auto text-center">
+                  <h2 className="text-4xl font-bold mb-6" style={{ color: section.textColor }}>{section.title}</h2>
+                  <p className="text-lg leading-relaxed" style={{ color: section.textColor }}>{section.content}</p>
+                </div>
+              </section>
+            )}
+            {section.type === 'blank' && (
+              <section 
+                onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('bg-emerald-500/5'); }}
+                onDragLeave={(e) => { e.currentTarget.classList.remove('bg-emerald-500/5'); }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.currentTarget.classList.remove('bg-emerald-500/5');
+                  try {
+                    const data = JSON.parse(e.dataTransfer.getData('application/json'));
+                    if (data.type === 'layout') {
+                      handleAddRows(data.value || 1, section.id, 'bottom');
+                    }
+                  } catch (err) {}
+                }}
+                className="py-32 px-4 flex items-center justify-center bg-zinc-900/50 border-y border-zinc-800/50 transition-all"
+              >
+                <div className="text-center">
+                  <div className="w-16 h-16 bg-zinc-800 rounded-full flex items-center justify-center mx-auto mb-4 border border-zinc-700">
+                    <Plus className="w-8 h-8 text-zinc-500" />
+                  </div>
+                  <p className="text-zinc-500 font-medium">Blank Section</p>
+                  <p className="text-zinc-600 text-sm">Drag a layout tool here to start building</p>
+                </div>
+              </section>
+            )}
+            {section.type === 'dynamic' && (
+              <section className="py-20 px-4" style={{ backgroundColor: section.backgroundColor || 'transparent' }}>
+                <div className="max-w-7xl mx-auto flex flex-col gap-12">
+                  {(section.title || section.description) && (
+                    <div className="text-center mb-8 space-y-4">
+                      {section.title && (
+                        <h2 className="text-4xl md:text-5xl font-bold text-white tracking-tight">{section.title}</h2>
+                      )}
+                      {section.description && (
+                        <p className="text-zinc-400 text-lg max-w-2xl mx-auto leading-relaxed">{section.description}</p>
+                      )}
+                    </div>
+                  )}
+                  {(section.rows || []).map((row: any, rowIndex: number) => (
+                    <EditableRow 
+                      key={row.id}
+                      row={row}
+                      sectionId={section.id}
+                      isEditMode={isEditMode}
+                      selectedItemId={selectedItemId || undefined}
+                      onDrop={(data, position, slotIndex) => handleRowDrop(section.id, rowIndex, data, position, slotIndex)}
+                      onSelectItem={(itemId) => setSelectedItemId(itemId)}
+                      onDelete={() => handleDeleteRow(section.id, rowIndex)}
+                      onUpdateRow={(updates) => handleUpdateRow(section.id, rowIndex, updates)}
+                    />
+                  ))}
+                  {(!section.rows || section.rows.length === 0) && (
+                    <div 
+                      onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('border-emerald-500', 'bg-emerald-500/5'); }}
+                      onDragLeave={(e) => { e.currentTarget.classList.remove('border-emerald-500', 'bg-emerald-500/5'); }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        e.currentTarget.classList.remove('border-emerald-500', 'bg-emerald-500/5');
+                        try {
+                          const data = JSON.parse(e.dataTransfer.getData('application/json'));
+                          if (data.type === 'layout') {
+                            handleAddRows(data.value || 1, section.id, 'bottom');
+                          }
+                        } catch (err) {}
+                      }}
+                      className="py-20 border-2 border-dashed border-zinc-800 rounded-2xl flex flex-col items-center justify-center text-center transition-all"
+                    >
+                      <PlusCircle className="w-12 h-12 text-zinc-700 mb-4" />
+                      <p className="text-zinc-500 font-medium">Empty Dynamic Section</p>
+                      <p className="text-zinc-600 text-sm">Drag a layout tool here to start building</p>
+                    </div>
+                  )}
+                </div>
+              </section>
+            )}
+            {renderExtraSection && renderExtraSection(section)}
+          </EditableSection>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const HomePage = () => {
+  return (
+    <DynamicEditablePage 
+      collectionName="home_sections"
+      fixedSections={[
+        { id: 'hero', type: 'hero', order: -100 },
+        { id: 'new-perf', type: 'new-perf', order: 0 }
+      ]}
+    />
+  );
+};
+
 const TrackRow = React.memo(({ 
   track, 
   isPlaying, 
@@ -1344,11 +2117,11 @@ const TrackRow = React.memo(({
   return (
     <div className="flex items-center gap-4 py-1 px-4 hover:bg-zinc-100/50 dark:hover:bg-zinc-700/20 rounded-lg transition-colors">
       <div className="-ml-2">
-        {getInstrumentIcon(track.instrument || track.title || '')}
+        {getInstrumentIcon(track.instrument || track.title || '', "w-7 h-7 text-emerald-500")}
       </div>
       <div className="flex flex-col truncate w-40 flex-none ml-2">
         <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">
-          {track.instrument || track.title || 'Track'}
+          {track.instrument ? formatInstrumentName(track.instrument) : (track.title || 'Track')}
         </span>
         <span className={`text-xs font-bold ${getDifficultyColor(track.difficulty)}`}>
           {track.difficulty ? track.difficulty.charAt(0).toUpperCase() + track.difficulty.slice(1) : 'Unknown'}
@@ -1465,10 +2238,12 @@ const PlaylistPage = () => {
   const currentTracks = React.useMemo(() => {
     if (!currentItem) return [];
     if (currentItem.isGroup) {
-      return allAudio.filter(m =>
-        m.title?.toLowerCase() === currentItem.title?.toLowerCase() &&
-        m.artist?.toLowerCase() === currentItem.artist?.toLowerCase()
-      );
+      return allAudio
+        .filter(m =>
+          m.title?.toLowerCase() === currentItem.title?.toLowerCase() &&
+          m.artist?.toLowerCase() === currentItem.artist?.toLowerCase()
+        )
+        .sort((a, b) => getInstrumentSortWeight(a.instrument) - getInstrumentSortWeight(b.instrument));
     } else {
       return [currentItem];
     }
@@ -1752,146 +2527,154 @@ const PlaylistPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 pt-24 pb-32 transition-colors duration-300">
-      <div className="max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/30 rounded-2xl flex items-center justify-center">
-              <ListMusic className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+    <div className="min-h-screen bg-transparent pt-24 pb-32 transition-colors duration-300">
+      <DynamicEditablePage 
+        collectionName="playlist_sections"
+        fixedSections={[{ id: 'playlist-player', type: 'playlist', order: 0 }]}
+        renderExtraSection={(section) => section.type === 'playlist' && (
+          <div className="max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/30 rounded-2xl flex items-center justify-center">
+                  <ListMusic className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold text-zinc-900 dark:text-white tracking-tight">Playlist</h1>
+                  <p className="text-zinc-600 dark:text-zinc-400">Your curated collection of tracks</p>
+                </div>
+              </div>
+              {isAdmin && (
+                <button
+                  onClick={() => setIsAddModalOpen(true)}
+                  className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl font-medium transition-colors shadow-sm"
+                >
+                  <Plus className="w-5 h-5" />
+                  <span>Add New Song</span>
+                </button>
+              )}
             </div>
-            <div>
-              <h1 className="text-3xl font-bold text-zinc-900 dark:text-white tracking-tight">Playlist</h1>
-              <p className="text-zinc-600 dark:text-zinc-400">Your curated collection of tracks</p>
-            </div>
-          </div>
-          {isAdmin && (
-            <button
-              onClick={() => setIsAddModalOpen(true)}
-              className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl font-medium transition-colors shadow-sm"
-            >
-              <Plus className="w-5 h-5" />
-              <span>Add New Song</span>
-            </button>
-          )}
-        </div>
 
-        {playbackQueue.length === 0 ? (
-          <div className="text-center py-20 bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800">
-            <ListMusic className="w-12 h-12 text-zinc-300 dark:text-zinc-700 mx-auto mb-4" />
-            <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-2">Your playlist is empty</h3>
-            <p className="text-zinc-500 dark:text-zinc-400">
-              Add songs from the Media page{isAdmin ? ' or create a new song group' : ''}.
-            </p>
-          </div>
-        ) : (
-          <div className="bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 overflow-hidden shadow-sm">
-            <div className="divide-y divide-zinc-100 dark:divide-zinc-800/50">
-              {playbackQueue.map((item, index) => {
-                const isPlayingThis = currentSongIndex === index;
+            {playbackQueue.length === 0 ? (
+              <div className="text-center py-20 bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800">
+                <ListMusic className="w-12 h-12 text-zinc-300 dark:text-zinc-700 mx-auto mb-4" />
+                <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-2">Your playlist is empty</h3>
+                <p className="text-zinc-500 dark:text-zinc-400">
+                  Add songs from the Media page{isAdmin ? ' or create a new song group' : ''}.
+                </p>
+              </div>
+            ) : (
+              <div className="bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 overflow-hidden shadow-sm">
+                <div className="divide-y divide-zinc-100 dark:divide-zinc-800/50">
+                  {playbackQueue.map((item, index) => {
+                    const isPlayingThis = currentSongIndex === index;
 
-                if (item.isGroup) {
-                  const tracks = allAudio.filter(m => m.title?.toLowerCase() === item.title?.toLowerCase() && m.artist?.toLowerCase() === item.artist?.toLowerCase());
-                  const isExpanded = expandedGroups[item.id];
+                    if (item.isGroup) {
+                      const tracks = allAudio
+                        .filter(m => m.title?.toLowerCase() === item.title?.toLowerCase() && m.artist?.toLowerCase() === item.artist?.toLowerCase())
+                        .sort((a, b) => getInstrumentSortWeight(a.instrument) - getInstrumentSortWeight(b.instrument));
+                      const isExpanded = expandedGroups[item.id];
 
-                  return (
-                    <div key={`group-${item.id}`} className="flex flex-col">
-                      <div 
-                        onClick={() => { setCurrentSongIndex(index); setIsPlaying(true); }}
-                        className={`flex items-center gap-4 p-4 px-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 cursor-pointer transition-colors ${isPlayingThis ? 'bg-emerald-50 dark:bg-emerald-900/10' : ''}`}
-                      >
-                        <div className="w-10 h-10 flex-shrink-0 bg-zinc-100 dark:bg-zinc-800 rounded-xl flex items-center justify-center relative group">
-                          {isPlayingThis && isPlaying ? (
-                            <div className="flex gap-0.5 items-end h-4">
-                              <motion.div animate={{ height: [4, 12, 4] }} transition={{ repeat: Infinity, duration: 0.8 }} className="w-1 bg-emerald-500" />
-                              <motion.div animate={{ height: [8, 16, 8] }} transition={{ repeat: Infinity, duration: 0.8, delay: 0.2 }} className="w-1 bg-emerald-500" />
-                              <motion.div animate={{ height: [6, 10, 6] }} transition={{ repeat: Infinity, duration: 0.8, delay: 0.4 }} className="w-1 bg-emerald-500" />
+                      return (
+                        <div key={`group-${item.id}`} className="flex flex-col">
+                          <div 
+                            onClick={() => { setCurrentSongIndex(index); setIsPlaying(true); }}
+                            className={`flex items-center gap-4 p-4 px-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 cursor-pointer transition-colors ${isPlayingThis ? 'bg-emerald-50 dark:bg-emerald-900/10' : ''}`}
+                          >
+                            <div className="w-10 h-10 flex-shrink-0 bg-zinc-100 dark:bg-zinc-800 rounded-xl flex items-center justify-center relative group">
+                              {isPlayingThis && isPlaying ? (
+                                <div className="flex gap-0.5 items-end h-4">
+                                  <motion.div animate={{ height: [4, 12, 4] }} transition={{ repeat: Infinity, duration: 0.8 }} className="w-1 bg-emerald-500" />
+                                  <motion.div animate={{ height: [8, 16, 8] }} transition={{ repeat: Infinity, duration: 0.8, delay: 0.2 }} className="w-1 bg-emerald-500" />
+                                  <motion.div animate={{ height: [6, 10, 6] }} transition={{ repeat: Infinity, duration: 0.8, delay: 0.4 }} className="w-1 bg-emerald-500" />
+                                </div>
+                              ) : (
+                                <Play className={`w-4 h-4 ${isPlayingThis ? 'text-emerald-500' : 'text-zinc-400 group-hover:text-emerald-500'} transition-colors ml-0.5`} />
+                              )}
                             </div>
-                          ) : (
-                            <Play className={`w-4 h-4 ${isPlayingThis ? 'text-emerald-500' : 'text-zinc-400 group-hover:text-emerald-500'} transition-colors ml-0.5`} />
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className={`font-medium truncate ${isPlayingThis ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-900 dark:text-white'}`}>
-                            {item.title}
-                          </p>
-                          <p className="text-sm text-zinc-500 dark:text-zinc-400 truncate">
-                            {item.artist} • {tracks.length} tracks detected
-                          </p>
-                        </div>
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); toggleExpand(item.id); }}
-                          className="p-2 text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors"
-                        >
-                          {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-                        </button>
-                      </div>
-
-                      {isExpanded && (
-                        <div className="bg-zinc-50 dark:bg-zinc-800/30 border-t border-zinc-100 dark:border-zinc-800/50 px-4 py-1">
-                          {tracks.length === 0 ? (
-                            <p className="text-sm text-zinc-500 py-2">No matching tracks found in Media.</p>
-                          ) : (
-                            tracks.map(track => (
-                              <TrackRow
-                                key={track.id}
-                                track={track}
-                                isPlaying={isPlaying && isPlayingThis}
-                                isMuted={trackMutes[track.id] || (isAnySoloed && !soloedTracks[track.id])}
-                                currentTime={isPlayingThis ? progress : 0}
-                                duration={isPlayingThis ? duration : 0}
-                                isSoloed={soloedTracks[track.id] || false}
-                                volume={trackVolumes[track.id] !== undefined ? trackVolumes[track.id] : (track.defaultVolume !== undefined ? track.defaultVolume : 1)}
-                                onSeek={(time) => {
-                                  setProgress(time);
-                                  currentTracks.forEach(t => {
-                                    const audio = audioRefs.current[t.id];
-                                    if (audio) audio.currentTime = time;
-                                  });
-                                }}
-                                onSolo={() => toggleTrackSolo(track.id)}
-                                onMute={() => toggleTrackMute(track.id)}
-                                onVolumeChange={(vol) => setTrackVolume(track.id, vol)}
-                              />
-                            ))
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                } else {
-                  return (
-                    <div 
-                      key={`single-${item.id}`}
-                      onClick={() => { setCurrentSongIndex(index); setIsPlaying(true); }}
-                      className={`flex items-center gap-4 p-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 cursor-pointer transition-colors ${isPlayingThis ? 'bg-emerald-50 dark:bg-emerald-900/10' : ''}`}
-                    >
-                      <div className="w-10 h-10 flex-shrink-0 bg-zinc-100 dark:bg-zinc-800 rounded-xl flex items-center justify-center relative group">
-                        {isPlayingThis && isPlaying ? (
-                          <div className="flex gap-0.5 items-end h-4">
-                            <motion.div animate={{ height: [4, 12, 4] }} transition={{ repeat: Infinity, duration: 0.8 }} className="w-1 bg-emerald-500" />
-                            <motion.div animate={{ height: [8, 16, 8] }} transition={{ repeat: Infinity, duration: 0.8, delay: 0.2 }} className="w-1 bg-emerald-500" />
-                            <motion.div animate={{ height: [6, 10, 6] }} transition={{ repeat: Infinity, duration: 0.8, delay: 0.4 }} className="w-1 bg-emerald-500" />
+                            <div className="flex-1 min-w-0">
+                              <p className={`font-medium truncate ${isPlayingThis ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-900 dark:text-white'}`}>
+                                {item.title}
+                              </p>
+                              <p className="text-sm text-zinc-500 dark:text-zinc-400 truncate">
+                                {item.artist} • {tracks.length} tracks detected
+                              </p>
+                            </div>
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); toggleExpand(item.id); }}
+                              className="p-2 text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors"
+                            >
+                              {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                            </button>
                           </div>
-                        ) : (
-                          <Play className={`w-4 h-4 ${isPlayingThis ? 'text-emerald-500' : 'text-zinc-400 group-hover:text-emerald-500'} transition-colors ml-0.5`} />
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className={`font-medium truncate ${isPlayingThis ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-900 dark:text-white'}`}>
-                          {item.title || item.url.split('/').pop()?.split('?')[0] || 'Unknown Title'}
-                        </p>
-                        <p className="text-sm text-zinc-500 dark:text-zinc-400 truncate">
-                          {item.artist || 'Unknown Artist'} {item.instrument ? `• ${item.instrument}` : ''}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                }
-              })}
-            </div>
+
+                          {isExpanded && (
+                            <div className="bg-zinc-50 dark:bg-zinc-800/30 border-t border-zinc-100 dark:border-zinc-800/50 px-4 py-1">
+                              {tracks.length === 0 ? (
+                                <p className="text-sm text-zinc-500 py-2">No matching tracks found in Media.</p>
+                              ) : (
+                                tracks.map(track => (
+                                  <TrackRow
+                                    key={track.id}
+                                    track={track}
+                                    isPlaying={isPlaying && isPlayingThis}
+                                    isMuted={trackMutes[track.id] || (isAnySoloed && !soloedTracks[track.id])}
+                                    currentTime={isPlayingThis ? progress : 0}
+                                    duration={isPlayingThis ? duration : 0}
+                                    isSoloed={soloedTracks[track.id] || false}
+                                    volume={trackVolumes[track.id] !== undefined ? trackVolumes[track.id] : (track.defaultVolume !== undefined ? track.defaultVolume : 1)}
+                                    onSeek={(time) => {
+                                      setProgress(time);
+                                      currentTracks.forEach(t => {
+                                        const audio = audioRefs.current[t.id];
+                                        if (audio) audio.currentTime = time;
+                                      });
+                                    }}
+                                    onSolo={() => toggleTrackSolo(track.id)}
+                                    onMute={() => toggleTrackMute(track.id)}
+                                    onVolumeChange={(vol) => setTrackVolume(track.id, vol)}
+                                  />
+                                ))
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    } else {
+                      return (
+                        <div 
+                          key={`single-${item.id}`}
+                          onClick={() => { setCurrentSongIndex(index); setIsPlaying(true); }}
+                          className={`flex items-center gap-4 p-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 cursor-pointer transition-colors ${isPlayingThis ? 'bg-emerald-50 dark:bg-emerald-900/10' : ''}`}
+                        >
+                          <div className="w-10 h-10 flex-shrink-0 bg-zinc-100 dark:bg-zinc-800 rounded-xl flex items-center justify-center relative group">
+                            {isPlayingThis && isPlaying ? (
+                              <div className="flex gap-0.5 items-end h-4">
+                                <motion.div animate={{ height: [4, 12, 4] }} transition={{ repeat: Infinity, duration: 0.8 }} className="w-1 bg-emerald-500" />
+                                <motion.div animate={{ height: [8, 16, 8] }} transition={{ repeat: Infinity, duration: 0.8, delay: 0.2 }} className="w-1 bg-emerald-500" />
+                                <motion.div animate={{ height: [6, 10, 6] }} transition={{ repeat: Infinity, duration: 0.8, delay: 0.4 }} className="w-1 bg-emerald-500" />
+                              </div>
+                            ) : (
+                              <Play className={`w-4 h-4 ${isPlayingThis ? 'text-emerald-500' : 'text-zinc-400 group-hover:text-emerald-500'} transition-colors ml-0.5`} />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className={`font-medium truncate ${isPlayingThis ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-900 dark:text-white'}`}>
+                              {item.title || item.url.split('/').pop()?.split('?')[0] || 'Unknown Title'}
+                            </p>
+                            <p className="text-sm text-zinc-500 dark:text-zinc-400 truncate">
+                              {item.artist || 'Unknown Artist'} {item.instrument ? `• ${formatInstrumentName(item.instrument)}` : ''}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    }
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         )}
-      </div>
+      />
 
       {/* Add Song Modal */}
       {isAddModalOpen && (
@@ -2046,13 +2829,13 @@ const PlaylistPage = () => {
 };
 
 const AboutPage = () => {
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, []);
-
   return (
     <div className="pt-20">
-      <About />
+      <DynamicEditablePage 
+        collectionName="about_sections"
+        fixedSections={[{ id: 'about-content', type: 'about-content', order: 0 }]}
+        renderExtraSection={(section) => section.type === 'about-content' && <About />}
+      />
     </div>
   );
 };
@@ -2263,7 +3046,7 @@ const PerformanceSection = ({ externalSearchQuery, onExternalSearchChange }: { e
   }
 
   return (
-    <section className="pt-8 pb-12 bg-zinc-50 dark:bg-zinc-900 transition-colors duration-300">
+    <section className="pt-8 pb-12 bg-transparent transition-colors duration-300">
       <div className="max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-row items-center justify-between gap-6 mb-12">
           <div className="md:flex-1 flex items-center justify-start">
@@ -2328,7 +3111,9 @@ const PerformanceSection = ({ externalSearchQuery, onExternalSearchChange }: { e
               <motion.div 
                 key={startIndex + i}
                 initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5 }}
                 whileHover={{ y: -10, scale: 1.02, transition: { type: "spring", stiffness: 300, damping: 20 } }}
                 onClick={() => setSelectedVideoIndex(startIndex + i)}
                 className="group relative cursor-pointer"
@@ -2407,7 +3192,7 @@ const PerformanceSection = ({ externalSearchQuery, onExternalSearchChange }: { e
                   <div className="flex justify-center gap-2">
                     <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-500">
                       {getInstrumentIcon(perf.instrument)}
-                      {perf.instrument}
+                      {formatInstrumentName(perf.instrument)}
                     </div>
                     <div className={`flex items-center gap-1.5 text-xs font-bold ${getDifficultyColor(perf.difficulty)}`}>
                       <DifficultyGauge difficulty={perf.difficulty} className="w-3.5 h-3.5" />
@@ -2464,39 +3249,11 @@ const PerformanceSection = ({ externalSearchQuery, onExternalSearchChange }: { e
 const VideoPlayerModal = ({ videos, initialIndex, onClose, onView }: { videos: any[], initialIndex: number, onClose: () => void, onView?: (perf: any) => void }) => {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [showRelated, setShowRelated] = useState(false);
-  const [activeVolumeBarUrl, setActiveVolumeBarUrl] = useState<string | null>(null);
-  const [relatedView, setRelatedView] = useState<'versions' | 'media'>('versions');
-  const [images, setImages] = useState<any[]>([]);
   const [startTime, setStartTime] = useState(0);
-  const [playingAudios, setPlayingAudios] = useState<string[]>([]);
   const [downloadingUrl, setDownloadingUrl] = useState<string | null>(null);
-  const playingAudiosRef = useRef<string[]>([]);
-  const lastPlayingAudiosRef = useRef<string[]>([]);
   const playerRef = useRef<any>(null);
-  const audiosRef = useRef<Map<string, HTMLAudioElement>>(new Map());
   const currentVideo = videos[currentIndex];
 
-  useEffect(() => {
-    playingAudiosRef.current = playingAudios;
-  }, [playingAudios]);
-
-  useEffect(() => {
-    return () => {
-      audiosRef.current.forEach(audio => {
-        audio.pause();
-        audio.src = "";
-      });
-      audiosRef.current.clear();
-    };
-  }, []);
-
-  useEffect(() => {
-    const q = query(collection(db, 'media'), orderBy('date', 'desc'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setImages(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    }, (err) => handleFirestoreError(err, OperationType.LIST, 'media'));
-    return () => unsubscribe();
-  }, []);
   const lastViewedIndex = React.useRef<number | null>(null);
 
   useEffect(() => {
@@ -2520,84 +3277,6 @@ const VideoPlayerModal = ({ videos, initialIndex, onClose, onView }: { videos: a
     v.artist === currentVideo.artist
   );
 
-  // Related media: same title and artist
-  const relatedMedia = React.useMemo(() => images.filter(m => 
-    m.title?.trim().toLowerCase() === currentVideo.title?.trim().toLowerCase() && 
-    m.artist?.trim().toLowerCase() === currentVideo.artist?.trim().toLowerCase()
-  ), [currentVideo, images]);
-
-  const lastPlayerStateRef = useRef<number | null>(null);
-  const lastSyncTimeRef = useRef<number>(0);
-
-  // Pre-initialize all related audio tracks for the current video
-  useEffect(() => {
-    // Clear existing audios
-    audiosRef.current.forEach(audio => {
-      audio.pause();
-      audio.src = "";
-    });
-    audiosRef.current.clear();
-    lastPlayingAudiosRef.current = [];
-
-    // Initialize new audios for this video
-    relatedMedia.forEach(m => {
-      if (m.type?.startsWith('audio/')) {
-        const audio = new Audio(m.url);
-        audio.preload = "auto";
-        const shouldBeHeard = playingAudiosRef.current.includes(m.url);
-        audio.muted = !shouldBeHeard;
-        audiosRef.current.set(m.url, audio);
-      }
-    });
-
-    // If video is already playing, start these audios
-    if (playerRef.current && typeof playerRef.current.getPlayerState === 'function') {
-      const state = playerRef.current.getPlayerState();
-      const time = playerRef.current.getCurrentTime();
-      if (state === 1) {
-        audiosRef.current.forEach(audio => {
-          audio.currentTime = time;
-          audio.play().catch(() => {});
-        });
-      }
-    }
-
-    return () => {
-      audiosRef.current.forEach(audio => {
-        audio.pause();
-        audio.src = "";
-      });
-      audiosRef.current.clear();
-    };
-  }, [currentVideo, relatedMedia]);
-
-  const muteRelatedAudio = () => {
-    audiosRef.current.forEach(audio => {
-      audio.muted = true;
-      audio.volume = 0.0;
-      audio.pause();
-    });
-    setPlayingAudios([]);
-  };
-
-  // Sync muted state when playingAudios changes
-  useEffect(() => {
-    audiosRef.current.forEach((audio, url) => {
-      const shouldBeHeard = playingAudios.includes(url);
-      
-      if (shouldBeHeard) {
-        if (audio.paused) {
-          audio.currentTime = playerRef.current?.getCurrentTime() || 0;
-          audio.play().catch(() => {});
-        }
-        audio.muted = false;
-      } else {
-        // Only pause, don't mute here, as muting is handled by muteRelatedAudio
-        audio.pause();
-      }
-    });
-  }, [playingAudios]);
-
   useEffect(() => {
     let player: any;
     const initPlayer = () => {
@@ -2615,46 +3294,6 @@ const VideoPlayerModal = ({ videos, initialIndex, onClose, onView }: { videos: a
             onReady: (event: any) => {
               playerRef.current = event.target;
               event.target.playVideo();
-              audiosRef.current.forEach((audio, url) => {
-                if (playingAudiosRef.current.includes(url)) {
-                  audio.play().catch(() => {});
-                }
-              });
-            },
-            onStateChange: (event: any) => {
-              const playerState = event.data;
-              if (playerState === lastPlayerStateRef.current) return;
-              lastPlayerStateRef.current = playerState;
-
-              const videoTime = event.target.getCurrentTime();
-              
-              if (playerState === 1) { // PLAYING
-                // Restore buttons
-                setPlayingAudios(lastPlayingAudiosRef.current);
-                
-                // Resume audios that were playing
-                lastPlayingAudiosRef.current.forEach(url => {
-                  const audio = audiosRef.current.get(url);
-                  if (audio) {
-                    audio.currentTime = videoTime;
-                    if (audio.paused) {
-                      audio.play().catch(() => {});
-                    }
-                  }
-                });
-
-                playerRef.current?.unMute();
-              } else {
-                // Save current playing audios
-                lastPlayingAudiosRef.current = playingAudiosRef.current;
-                
-                // Pause all audios
-                audiosRef.current.forEach((audio) => {
-                  audio.pause();
-                });
-                // Turn off buttons
-                setPlayingAudios([]); 
-              }
             }
           }
         });
@@ -2680,41 +3319,6 @@ const VideoPlayerModal = ({ videos, initialIndex, onClose, onView }: { videos: a
       }
     };
   }, [videoId]);
-
-  // Sync audio with video drift
-  useEffect(() => {
-    if (!playerRef.current) return;
-
-    let animationId: number;
-    const sync = () => {
-      if (playerRef.current && typeof playerRef.current.getPlayerState === 'function') {
-        const playerState = playerRef.current.getPlayerState();
-        const videoTime = playerRef.current.getCurrentTime();
-
-        if (playerState === 1) { // PLAYING
-          audiosRef.current.forEach((audio) => {
-            const drift = Math.abs(videoTime - audio.currentTime);
-            // Tightened threshold to 0.02 seconds for 100% synchronization
-            if (drift > 0.02) {
-              audio.currentTime = videoTime;
-            }
-          });
-        }
-        
-        // Check for unmute
-        if (typeof playerRef.current.isMuted === 'function') {
-          const isVideoMuted = playerRef.current.isMuted();
-          if (!isVideoMuted && playingAudiosRef.current.length > 0) {
-            muteRelatedAudio();
-          }
-        }
-      }
-      animationId = requestAnimationFrame(sync);
-    };
-
-    animationId = requestAnimationFrame(sync);
-    return () => cancelAnimationFrame(animationId);
-  }, []);
 
   const handleVersionSwitch = (newIdx: number) => {
     if (playerRef.current && playerRef.current.getCurrentTime) {
@@ -2824,7 +3428,7 @@ const VideoPlayerModal = ({ videos, initialIndex, onClose, onView }: { videos: a
             </button>
 
             {/* Top Right: Related Videos Button */}
-            {(relatedVideos.length > 1 || relatedMedia.length > 0) && (
+            {(relatedVideos.length > 1) && (
               <div className="relative">
                 <button 
                   onClick={(e) => {
@@ -2847,151 +3451,35 @@ const VideoPlayerModal = ({ videos, initialIndex, onClose, onView }: { videos: a
                     className="absolute top-full right-0 mt-2 w-72 bg-white/80 dark:bg-zinc-900/80 border border-zinc-200 dark:border-white/10 rounded-2xl overflow-hidden shadow-2xl"
                     onClick={e => e.stopPropagation()}
                   >
-                    {(relatedVideos.length > 1 && relatedMedia.length > 0) && (
-                      <div className="flex border-b border-zinc-100 dark:border-white/5">
-                        <button 
-                          onClick={() => setRelatedView('versions')}
-                          className={`flex-1 p-3 text-[10px] font-bold uppercase tracking-wider ${relatedView === 'versions' ? 'bg-zinc-100 dark:bg-white/10 text-emerald-500' : 'text-zinc-500'}`}
-                        >
-                          Video ({relatedVideos.length})
-                        </button>
-                        <button 
-                          onClick={() => setRelatedView('media')}
-                          className={`flex-1 p-3 text-[10px] font-bold uppercase tracking-wider ${relatedView === 'media' ? 'bg-zinc-100 dark:bg-white/10 text-emerald-500' : 'text-zinc-500'}`}
-                        >
-                          Audio ({relatedMedia.length})
-                        </button>
-                      </div>
-                    )}
                     <div className="max-h-60 overflow-y-auto">
-                      {(relatedMedia.length === 0 || (relatedVideos.length > 1 && relatedView === 'versions')) ? (
-                        relatedVideos.map((rv, idx) => {
-                          const matchingMedias = relatedMedia.filter(m => m.instrument?.trim().toLowerCase() === rv.instrument?.trim().toLowerCase());
-                          return (
-                            <div
-                              key={idx}
-                              role="button"
-                              tabIndex={0}
-                              onClick={() => {
-                                const globalIdx = videos.findIndex(v => v.youtubeUrl === rv.youtubeUrl);
-                                if (globalIdx !== -1) handleVersionSwitch(globalIdx);
-                              }}
-                              className={`w-full flex items-center gap-3 p-3 hover:bg-zinc-50 dark:hover:bg-white/5 transition-colors text-left cursor-pointer ${
-                                rv.youtubeUrl === currentVideo.youtubeUrl ? 'bg-emerald-500/10 text-emerald-500' : 'text-zinc-700 dark:text-zinc-300'
-                              }`}
-                            >
-                              <div className="w-16 aspect-video rounded overflow-hidden flex-shrink-0 flex items-center justify-center">
-                                {React.cloneElement(getInstrumentIcon(rv.instrument) as React.ReactElement, { className: "w-8 h-8 text-emerald-500" })}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-xs font-bold truncate text-zinc-800 dark:text-zinc-200">{rv.instrument}</p>
-                                <p className={`text-[10px] font-bold truncate ${getDifficultyColor(rv.difficulty)}`}>{rv.difficulty}</p>
-                              </div>
-                              {matchingMedias.length > 0 && (
-                                <div className="flex items-center gap-1">
-                                  {matchingMedias.map((rm, mIdx) => (
-                                    <button
-                                      key={mIdx}
-                                      onClick={(e) => handleDownload(e, rm)}
-                                      className={`p-2 rounded-full hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors ${downloadingUrl === rm.url ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                      title={`Download ${rm.type?.startsWith('audio/') ? 'Audio' : 'Sheet'}`}
-                                      disabled={downloadingUrl === rm.url}
-                                    >
-                                      {downloadingUrl === rm.url ? (
-                                        <Loader2 className="w-4 h-4 animate-spin text-emerald-500" />
-                                      ) : (
-                                        <Download className="w-4 h-4 text-zinc-500 hover:text-emerald-500" />
-                                      )}
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })
-                      ) : (
-                        relatedMedia.map((rm, idx) => (
-                          <div key={idx} className="w-full flex items-center gap-3 p-3 text-zinc-700 dark:text-zinc-300">
-                            <div className="w-12 h-12 rounded flex items-center justify-center flex-shrink-0">
-                              {React.cloneElement(getInstrumentIcon(rm.instrument || rm.title) as React.ReactElement, { className: "w-6 h-6 text-emerald-500" })}
+                      {relatedVideos.map((rv, idx) => {
+                        return (
+                          <div
+                            key={idx}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => {
+                              const globalIdx = videos.findIndex(v => v.youtubeUrl === rv.youtubeUrl);
+                              if (globalIdx !== -1) handleVersionSwitch(globalIdx);
+                            }}
+                            className={`w-full flex items-center gap-3 p-3 hover:bg-zinc-50 dark:hover:bg-white/5 transition-colors text-left cursor-pointer ${
+                              rv.youtubeUrl === currentVideo.youtubeUrl ? 'bg-emerald-500/10 text-emerald-500' : 'text-zinc-700 dark:text-zinc-300'
+                            }`}
+                          >
+                            <div className="w-16 aspect-video rounded overflow-hidden flex-shrink-0 flex items-center justify-center">
+                              {getInstrumentIcon(rv.instrument, "w-8 h-8 text-emerald-500")}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="text-xs font-bold truncate text-zinc-800 dark:text-zinc-200">{rm.instrument || rm.title}</p>
-                              <p className={`text-[10px] font-bold truncate ${rm.difficulty ? getDifficultyColor(rm.difficulty) : 'text-zinc-500'}`}>{rm.difficulty || (rm.type?.startsWith('audio/') ? 'Audio' : 'File')}</p>
-                            </div>
-                            <div className="relative flex items-center gap-2">
-                              {rm.type?.startsWith('audio/') && (
-                                <button
-                                  onClick={() => setActiveVolumeBarUrl(activeVolumeBarUrl === rm.url ? null : rm.url)}
-                                  className="p-2 rounded-full hover:bg-zinc-200 dark:hover:bg-zinc-800"
-                                >
-                                  <Volume2 className="w-4 h-4 text-zinc-700 dark:text-zinc-300" />
-                                </button>
-                              )}
-                              <button
-                                onClick={(e) => handleDownload(e, rm)}
-                                className={`p-2 rounded-full hover:bg-zinc-200 dark:hover:bg-zinc-800 ${downloadingUrl === rm.url ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                disabled={downloadingUrl === rm.url}
-                                title={`Download ${rm.type?.startsWith('audio/') ? 'Audio' : 'Sheet'}`}
-                              >
-                                {downloadingUrl === rm.url ? (
-                                  <Loader2 className="w-4 h-4 text-zinc-700 dark:text-zinc-300 animate-spin" />
-                                ) : (
-                                  <Download className="w-4 h-4 text-zinc-700 dark:text-zinc-300" />
-                                )}
-                              </button>
-                              {rm.type?.startsWith('audio/') && (
-                                <>
-                                  <button
-                                    onClick={() => {
-                                      const isCurrentlyHeard = playingAudios.includes(rm.url);
-                                      
-                                      if (isCurrentlyHeard) {
-                                        const newAudios = playingAudios.filter(a => a !== rm.url);
-                                        setPlayingAudios(newAudios);
-                                        if (newAudios.length === 0) {
-                                          playerRef.current?.unMute();
-                                        }
-                                      } else {
-                                        setPlayingAudios([...playingAudios, rm.url]);
-                                        playerRef.current?.mute();
-                                      }
-                                    }}
-                                    className={`p-2 rounded-full transition-all ${playingAudios.includes(rm.url) ? 'bg-emerald-500 text-white scale-110' : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:scale-105'}`}
-                                  >
-                                    {playingAudios.includes(rm.url) ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-                                  </button>
-                                  {activeVolumeBarUrl === rm.url && (
-                                    <div className="absolute top-full mt-2 right-0 p-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 rounded-lg shadow-xl z-10">
-                                      <input
-                                        type="range"
-                                        min="0"
-                                        max="1"
-                                        step="0.1"
-                                        defaultValue={audiosRef.current.get(rm.url)?.volume ?? 1.0}
-                                        onChange={(e) => {
-                                          const volume = parseFloat(e.target.value);
-                                          const audio = audiosRef.current.get(rm.url);
-                                          if (audio) {
-                                            audio.volume = volume;
-                                          }
-                                        }}
-                                        className="w-16 accent-emerald-500"
-                                      />
-                                    </div>
-                                  )}
-                                </>
-                              )}
+                              <p className="text-xs font-bold truncate text-zinc-800 dark:text-zinc-200">{formatInstrumentName(rv.instrument)}</p>
+                              <p className={`text-[10px] font-bold truncate ${getDifficultyColor(rv.difficulty)}`}>{rv.difficulty}</p>
                             </div>
                           </div>
-                        ))
-                      )}
+                        );
+                      })}
                     </div>
                   </div>
                 )}
-                {/* Audio elements are managed dynamically in audiosRef */}
               </div>
-
             )}
           </div>
 
@@ -3011,7 +3499,7 @@ const VideoPlayerModal = ({ videos, initialIndex, onClose, onView }: { videos: a
             <div className="flex items-center gap-4 text-sm font-medium">
               <span className="text-emerald-500 flex items-center gap-1.5">
                 {getInstrumentIcon(currentVideo.instrument)}
-                {currentVideo.instrument}
+                {formatInstrumentName(currentVideo.instrument)}
               </span>
               <span className="text-zinc-400">•</span>
               <span className={`font-bold flex items-center gap-1.5 ${getDifficultyColor(currentVideo.difficulty)}`}>
@@ -3269,7 +3757,7 @@ const InstrumentsSection = ({ onInstrumentClick }: { onInstrumentClick?: (instru
   };
 
   return (
-    <section className="pt-8 pb-8 bg-white dark:bg-zinc-950 transition-colors duration-300">
+    <section className="pt-8 pb-8 bg-transparent transition-colors duration-300">
       <div className="max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-2">
           <h2 className="text-3xl font-bold text-zinc-900 dark:text-white mb-1 tracking-tight">Instruments</h2>
@@ -3993,7 +4481,7 @@ const MediaPage = () => {
   };
 
   return (
-    <div className="pt-24 pb-16 min-h-screen bg-white dark:bg-black transition-colors duration-300">
+    <div className="pt-24 pb-16 min-h-screen bg-transparent transition-colors duration-300">
       <div className="max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-row justify-between items-center mb-12 gap-6">
           <div>
@@ -4469,14 +4957,21 @@ const MediaPage = () => {
 const PerformancePage = () => {
   const [searchQuery, setSearchQuery] = useState('');
 
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, []);
-
   return (
     <div className="pt-20">
-      <InstrumentsSection onInstrumentClick={setSearchQuery} />
-      <PerformanceSection externalSearchQuery={searchQuery} onExternalSearchChange={setSearchQuery} />
+      <DynamicEditablePage 
+        collectionName="performance_sections"
+        fixedSections={[
+          { id: 'instruments', type: 'instruments', order: 0 },
+          { id: 'performances', type: 'performances', order: 1 }
+        ]}
+        renderExtraSection={(section) => (
+          <>
+            {section.type === 'instruments' && <InstrumentsSection onInstrumentClick={setSearchQuery} />}
+            {section.type === 'performances' && <PerformanceSection externalSearchQuery={searchQuery} onExternalSearchChange={setSearchQuery} />}
+          </>
+        )}
+      />
     </div>
   );
 };
@@ -4499,8 +4994,10 @@ export default function App() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isAuthReady, setIsAuthReady] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showLoginSuccessModal, setShowLoginSuccessModal] = useState(false);
+  const [showExitConfirmation, setShowExitConfirmation] = useState(false);
   const [sparks, setSparks] = useState<{id: number, x: number, y: number}[]>([]);
   const [cloudinaryConfig, setCloudinaryConfig] = useState({
     cloudName: localStorage.getItem('cloudinary_cloud_name') || '',
@@ -4629,6 +5126,8 @@ export default function App() {
         user, 
         isAdmin, 
         isAuthReady, 
+        isEditMode,
+        setIsEditMode,
         cloudinaryConfig,
         saveCloudinaryConfig,
         login, 
@@ -4636,9 +5135,11 @@ export default function App() {
         showLoginModal, 
         setShowLoginModal, 
         showLoginSuccessModal, 
-        setShowLoginSuccessModal 
+        setShowLoginSuccessModal,
+        showExitConfirmation,
+        setShowExitConfirmation
       }}>
-        <div className="min-h-screen font-sans selection:bg-emerald-100 selection:text-emerald-900 transition-colors duration-300 bg-black text-white dark">
+        <div className="min-h-screen font-sans selection:bg-emerald-100 selection:text-emerald-900 transition-colors duration-300 bg-zinc-950 text-white dark">
           <Navbar />
           <main>
             <Routes>

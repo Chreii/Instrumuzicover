@@ -44,10 +44,9 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() && 
-        (request.auth.token.email != null && (
-          request.auth.token.email.lower() == "dylanchrey@gmail.com" || 
-          request.auth.token.email.lower() == "chreii05@chreii.com"
-        ));
+             request.auth.token.email != null &&
+             (request.auth.token.email.lower() == "dylanchrey@gmail.com" || 
+              request.auth.token.email.lower() == "chreii05@chreii.com");
     }
 
     function hasRequiredFields(fields) {
@@ -116,6 +115,36 @@ service cloud.firestore {
     // ===============================================================
     // Rules
     // ===============================================================
+
+    match /home_sections/{sectionId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /performance_sections/{sectionId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /about_sections/{sectionId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /products_sections/{sectionId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /contact_sections/{sectionId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /playlist_sections/{sectionId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
 
     match /users/{userId} {
       allow read: if isAuthenticated() && request.auth.uid == userId;

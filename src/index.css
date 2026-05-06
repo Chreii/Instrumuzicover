@@ -86,3 +86,9 @@ html::-webkit-scrollbar-thumb:hover {
 .dark html::-webkit-scrollbar-thumb:hover {
   background-color: #a1a1aa; /* zinc-400 */
 }
+
+html, body {
+  background-color: #000000;
+  margin: 0;
+  padding: 0;
+}

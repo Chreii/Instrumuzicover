@@ -54,6 +54,42 @@
         "createdAt": { "type": "string", "description": "Creation timestamp" }
       },
       "required": ["title", "artist", "userId"]
+    },
+    "PageSection": {
+      "title": "PageSection",
+      "description": "A dynamic section on a page",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "type": "string", "enum": ["hero", "latest", "popular", "text", "image", "blank", "dynamic"] },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "order": { "type": "integer" },
+        "backgroundColor": { "type": "string" },
+        "textColor": { "type": "string" },
+        "rows": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "layout": { "type": "string", "enum": ["1-col", "2-col", "3-col"] },
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "type": { "type": "string", "enum": ["image", "text"] },
+                    "url": { "type": "string" },
+                    "content": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "required": ["id", "type", "order"]
     }
   },
   "firestore": {
@@ -72,6 +108,30 @@
     "/playlist_groups/{groupId}": {
       "schema": "PlaylistGroup",
       "description": "Collection of playlist groups"
+    },
+    "/home_sections/{sectionId}": {
+      "schema": "PageSection",
+      "description": "Dynamic sections for the home page"
+    },
+    "/performance_sections/{sectionId}": {
+      "schema": "PageSection",
+      "description": "Dynamic sections for the performance page"
+    },
+    "/about_sections/{sectionId}": {
+      "schema": "PageSection",
+      "description": "Dynamic sections for the about page"
+    },
+    "/products_sections/{sectionId}": {
+      "schema": "PageSection",
+      "description": "Dynamic sections for the products page"
+    },
+    "/contact_sections/{sectionId}": {
+      "schema": "PageSection",
+      "description": "Dynamic sections for the contact page"
+    },
+    "/playlist_sections/{sectionId}": {
+      "schema": "PageSection",
+      "description": "Dynamic sections for the playlist page"
     }
   }
 }
