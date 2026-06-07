@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef, useContext, Component } from 'react';
+import newLogoUrl from './assets/images/regenerated_image_1780817274627.png';
 import LoginSuccessModal from './components/LoginSuccessModal';
 import { Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
@@ -89,6 +90,7 @@ import { SectionToolbox } from './components/SectionToolbox';
 import { MediaSelectorModal } from './components/MediaSelectorModal';
 import { EditableRow } from './components/EditableRow';
 import { ImageToolbox } from './components/ImageToolbox';
+import { ElementInspector } from './components/ElementInspector';
 
 const DIFFICULTIES = ['Beginner', 'Easy', 'Intermediate', 'Advanced', 'Expert'];
 const INSTRUMENTS = [
@@ -589,13 +591,18 @@ const incrementViewCount = async (perf: any) => {
   }
 };
 
-const Logo = ({ className = "w-14 h-14" }: { className?: string }) => {
-  const [logoUrl, setLogoUrl] = useState<string>('https://pixabay.com/images/download/u_op8btczor7-green-10179478_1280.png');
+const Logo = ({ className = "w-14 h-14", imgStyle }: { className?: string; imgStyle?: React.CSSProperties }) => {
+  const [logoUrl, setLogoUrl] = useState<string>(newLogoUrl);
 
   useEffect(() => {
     const savedLogo = localStorage.getItem('app_logo');
     if (savedLogo) {
-      setLogoUrl(savedLogo);
+      if (savedLogo.includes('pixabay.com') || savedLogo === 'https://res.cloudinary.com/dj52ig0l7/image/upload/v1780633186/zsjuxacfxlrdsl0f3nac.png' || savedLogo === 'https://res.cloudinary.com/dj52ig0l7/image/upload/v1780632694/pua45jexzmemmkjrmvox.png' || savedLogo === 'https://res.cloudinary.com/dj52ig0l7/image/upload/v1780817182694.png') {
+        localStorage.setItem('app_logo', newLogoUrl);
+        setLogoUrl(newLogoUrl);
+      } else {
+        setLogoUrl(savedLogo);
+      }
     }
   }, []);
 
@@ -613,6 +620,7 @@ const Logo = ({ className = "w-14 h-14" }: { className?: string }) => {
         src={logoUrl} 
         alt="Logo" 
         className="w-full h-full object-contain rounded-lg" 
+        style={imgStyle}
         referrerPolicy="no-referrer" 
         loading="eager"
         decoding="async"
@@ -621,185 +629,284 @@ const Logo = ({ className = "w-14 h-14" }: { className?: string }) => {
   );
 };
 
-const Navbar = () => {
-  const [isOpen, setIsOpen] = useState(false);
-  const { user, isAdmin, isEditMode, setIsEditMode, login, logout, setShowExitConfirmation } = useContext(AuthContext);
-  const location = useLocation();
+const NAV_LINKS_BASE = [
+  { path: '/', label: 'Home', defaultImg: 'https://res.cloudinary.com/dj52ig0l7/image/upload/v1780386406/z0qi9o5x50rv3ou4z2qc.png', activeImg: 'https://res.cloudinary.com/dj52ig0l7/image/upload/v1780722519/acoyqf3jsqzhylhd5etc.png', sizeClass: 'w-[50px] h-[50px]' },
+  { path: '/performance', label: 'Performance', defaultImg: 'https://res.cloudinary.com/dj52ig0l7/image/upload/v1780700550/efvnjew5nmukquocbufq.png', activeImg: 'https://res.cloudinary.com/dj52ig0l7/image/upload/v1780814118/p38vxt5agjsugpyz1h3w.png', sizeClass: 'w-[50px] h-[50px]' },
+  { path: '/playlist', label: 'Playlist', defaultImg: 'https://res.cloudinary.com/dj52ig0l7/image/upload/v1780700309/yymfiet6emdyzfelpcwp.png', activeImg: 'https://res.cloudinary.com/dj52ig0l7/image/upload/v1780817766/gvofkpvyhfyvhowlcfa9.png', sizeClass: 'w-[50px] h-[50px]' },
+  { path: '/media', label: 'Media', adminOnly: true, defaultImg: 'https://res.cloudinary.com/dj52ig0l7/image/upload/v1780700285/yxzcywnjki2a0jqshbul.png', activeImg: 'https://res.cloudinary.com/dj52ig0l7/image/upload/v1780722520/bezuanlpvepkhkr2vj5c.png', sizeClass: 'w-[50px] h-[50px]' },
+  { path: '/products', label: 'Product', defaultImg: 'https://res.cloudinary.com/dj52ig0l7/image/upload/v1780700326/sywrukeionny716yatvy.png', activeImg: 'https://res.cloudinary.com/dj52ig0l7/image/upload/v1780722522/hiph7fga5hkdo94uka9o.png', sizeClass: 'w-[50px] h-[50px]' },
+  { path: '/contact', label: 'Contact', defaultImg: 'https://res.cloudinary.com/dj52ig0l7/image/upload/v1780700247/ihjqppqrtuuppulowthw.png', activeImg: 'https://res.cloudinary.com/dj52ig0l7/image/upload/v1780722518/ctmpm2nubfdj7h7nacm5.png', sizeClass: 'w-[50px] h-[50px]' },
+  { path: '/about', label: 'About', defaultImg: 'https://res.cloudinary.com/dj52ig0l7/image/upload/v1780700255/yao2lqrtdp7u6vbn9w1v.png', activeImg: 'https://res.cloudinary.com/dj52ig0l7/image/upload/v1780812507/rtprsgnlcgqdygwmim4b.png', sizeClass: 'w-[50px] h-[50px]' },
+];
 
+const NavItem = ({ path, label, defaultImg, activeImg, isActive, sizeClass }: any) => {
   return (
-    <nav className="fixed top-0 left-0 right-0 z-[1000] bg-black/20 backdrop-blur-md border-b border-zinc-800/50 transition-colors duration-300">
-      <div className="max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16 items-center">
-          <div className="flex items-center gap-2">
-            <button onClick={() => setIsOpen(!isOpen)} className="md:hidden text-zinc-400 p-2 -ml-2">
-              {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-            </button>
-            <Link to="/" className="flex items-center gap-2">
-              <Logo className="w-14 h-14" />
-              <span className="hidden sm:block text-xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-[#42ae66] via-white to-[#42ae66] bg-[length:200%_auto] animate-[shine_3s_linear_infinite]">Instrumuzicover</span>
-            </Link>
-          </div>
-          
-          <div className="flex items-center gap-6">
-            <div className="hidden md:flex items-center gap-6">
-              <Link to="/" className={`text-sm font-medium transition-colors ${location.pathname === '/' ? 'text-emerald-400 electric-card' : 'text-zinc-400 hover:text-emerald-400'}`}>Home</Link>
-              <Link to="/performance" className={`text-sm font-medium transition-colors ${location.pathname === '/performance' ? 'text-emerald-400 electric-card' : 'text-zinc-400 hover:text-emerald-400'}`}>Performance</Link>
-              <Link to="/playlist" className={`text-sm font-medium transition-colors ${location.pathname === '/playlist' ? 'text-emerald-400 electric-card' : 'text-zinc-400 hover:text-emerald-400'}`}>Playlist</Link>
-              {isAdmin && (
-                <Link to="/media" className={`text-sm font-medium transition-colors ${location.pathname === '/media' ? 'text-emerald-400 electric-card' : 'text-zinc-400 hover:text-emerald-400'}`}>Media</Link>
-              )}
-              <Link to="/products" className={`text-sm font-medium transition-colors ${location.pathname === '/products' ? 'text-emerald-400 electric-card' : 'text-zinc-400 hover:text-emerald-400'}`}>Product</Link>
-              <Link to="/contact" className={`text-sm font-medium transition-colors ${location.pathname === '/contact' ? 'text-emerald-400 electric-card' : 'text-zinc-400 hover:text-emerald-400'}`}>Contact</Link>
-              <Link to="/about" className={`text-sm font-medium transition-colors ${location.pathname === '/about' ? 'text-emerald-400 electric-card' : 'text-zinc-400 hover:text-emerald-400'}`}>About</Link>
-              {isAdmin && (
-                <button 
-                  onClick={() => {
-                    if (isEditMode) {
-                      setShowExitConfirmation(true);
-                    } else {
-                      setIsEditMode(true);
-                    }
-                  }}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all ${
-                    isEditMode 
-                      ? 'bg-emerald-500/10 border-emerald-500 text-emerald-500' 
-                      : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:text-emerald-400'
-                  }`}
-                >
-                  <Edit2 className="w-4 h-4" />
-                  <span className="text-xs font-bold">{isEditMode ? 'Editing' : 'Edit Mode'}</span>
-                </button>
-              )}
-            </div>
-            {user ? (
-              <div className="flex items-center gap-4">
-                {!isAdmin && (
-                  <div className="flex items-center gap-2 bg-zinc-800 px-3 py-1.5 rounded-full border border-zinc-700">
-                    {user.photoURL ? (
-                      <img src={user.photoURL} alt="" className="w-6 h-6 rounded-full" />
-                    ) : (
-                      <User className="w-4 h-4 text-emerald-400" />
-                    )}
-                    <span className="text-xs font-bold text-white truncate max-w-[100px]">{user.displayName || 'User'}</span>
-                  </div>
-                )}
-                {isAdmin && (
-                  <button className="flex items-center gap-2 bg-zinc-800 px-3 py-1.5 rounded-full border border-zinc-700 text-white hover:bg-zinc-700 transition-colors">
-                    <User className="w-4 h-4 text-emerald-400" />
-                    <span className="text-xs font-bold">Admin</span>
-                  </button>
-                )}
-                <button 
-                  onClick={logout}
-                  className="text-zinc-400 hover:text-red-400 transition-colors"
-                  title="Logout"
-                >
-                  <LogOut className="w-5 h-5" />
-                </button>
-              </div>
-            ) : (
-              <button 
-                onClick={login}
-                className="hover:opacity-80 transition-opacity flex items-center justify-center"
-              >
-                <img 
-                  src="data:image/png;base64,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" 
-                  alt="Login" 
-                  className="h-10 w-auto object-contain"
-                />
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Mobile menu */}
-      {isOpen && (
-        <motion.div 
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="md:hidden bg-zinc-900 border-b border-zinc-800 px-4 pt-2 pb-6 flex flex-col gap-4"
+    <Link to={path} className="relative group px-1 mx-0.5 sm:px-2 rounded-full flex items-center justify-center transition-all h-[56px] min-w-[56px] lg:minw-[70px]">
+      <motion.div
+        className="flex flex-col xl:flex-row items-center gap-1 xl:gap-2 relative z-10"
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+      >
+        <img 
+          src={isActive ? activeImg : defaultImg} 
+          alt={label} 
+          className={`${sizeClass || 'w-7 h-7 sm:w-8 sm:h-8'} object-contain transition-opacity duration-300 drop-shadow-sm`}
+          style={{ opacity: isActive ? 1 : 0.7 }}
+          referrerPolicy="no-referrer"
+        />
+        <span className={`text-[10px] sm:text-xs xl:text-sm font-semibold tracking-wide transition-colors duration-300 ${isActive ? 'text-[#b5d98d] drop-shadow-[0_0_8px_rgba(209,254,184,0.4)]' : 'text-[#7ab18a] group-hover:text-[#7ab18a]'}`}>
+          {label}
+        </span>
+      </motion.div>
+      {isActive && (
+        <motion.div
+          layoutId="navbar-active-indicator"
+          className="absolute inset-0 rounded-[28px] bg-[#D1FEB8]/10 shadow-[0_0_20px_rgba(209,254,184,0.2)] border border-[#D1FEB8]/30 z-0"
+          initial={false}
+          transition={{ type: "spring", stiffness: 350, damping: 30 }}
         >
-          <Link to="/" onClick={() => setIsOpen(false)} className="text-lg font-medium text-zinc-400">Home</Link>
-          <Link to="/performance" onClick={() => setIsOpen(false)} className="text-lg font-medium text-zinc-400">Performance</Link>
-          <Link to="/playlist" onClick={() => setIsOpen(false)} className="text-lg font-medium text-zinc-400">Playlist</Link>
-          {isAdmin && (
-            <Link to="/media" onClick={() => setIsOpen(false)} className="text-lg font-medium text-zinc-400">Media</Link>
-          )}
-          <Link to="/products" onClick={() => setIsOpen(false)} className="text-lg font-medium text-zinc-400">Product</Link>
-          <Link to="/contact" onClick={() => setIsOpen(false)} className="text-lg font-medium text-zinc-400">Contact</Link>
-          <Link to="/about" onClick={() => setIsOpen(false)} className="text-lg font-medium text-zinc-400">About</Link>
-          {isAdmin && (
-            <button 
-              onClick={() => { 
-                if (isEditMode) {
-                  setShowExitConfirmation(true);
-                } else {
-                  setIsEditMode(true);
-                }
-                setIsOpen(false); 
-              }}
-              className={`flex items-center justify-center gap-2 py-3 rounded-xl border transition-all ${
-                isEditMode 
-                  ? 'bg-emerald-500/10 border-emerald-500 text-emerald-500' 
-                  : 'bg-zinc-800 border-zinc-700 text-zinc-400'
-              }`}
-            >
-              <Edit2 className="w-5 h-5" />
-              <span className="font-bold">{isEditMode ? 'Editing Mode Active' : 'Enable Edit Mode'}</span>
-            </button>
-          )}
-          {user ? (
-            <div className="flex flex-col gap-4 pt-4 border-t border-zinc-800">
-              <div className="flex items-center gap-3">
-                {user.photoURL && <img src={user.photoURL} alt="" className="w-10 h-10 rounded-full" />}
-                <div>
-                  <p className="text-white font-bold">{user.displayName}</p>
-                  <p className="text-zinc-500 text-sm">{user.email}</p>
-                </div>
-              </div>
-              <button 
-                onClick={() => { logout(); setIsOpen(false); }}
-                className="flex items-center gap-2 text-red-500 font-bold"
-              >
-                <LogOut className="w-5 h-5" /> Logout
-              </button>
-            </div>
-          ) : (
-            <button 
-              onClick={() => { login(); setIsOpen(false); }}
-              className="hover:opacity-80 transition-opacity flex items-center justify-center py-2"
-            >
-              <img 
-                src="data:image/png;base64,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" 
-                alt="Login" 
-                className="h-10 w-auto object-contain"
-              />
-            </button>
-          )}
+          <div className="absolute -bottom-[1px] left-1/2 -translate-x-1/2 w-8 h-[2px] bg-[#D1FEB8] rounded-full shadow-[0_0_10px_#D1FEB8]" />
         </motion.div>
       )}
-    </nav>
+      {!isActive && (
+        <div className="absolute inset-0 rounded-[28px] bg-white/0 group-hover:bg-white/5 border border-transparent group-hover:border-white/10 transition-colors duration-300 z-0" />
+      )}
+    </Link>
   );
 };
 
+const Navbar = () => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const { user, isAdmin, login, logout } = useContext(AuthContext);
+  const location = useLocation();
+
+  const activeLinks = NAV_LINKS_BASE.filter(link => !link.adminOnly || isAdmin);
+
+  return (
+    <nav className="fixed top-6 md:top-8 left-1/2 -translate-x-1/2 z-[1000] w-[calc(100%-2rem)] max-w-[1374px] transition-all duration-300 pointer-events-none">
+      <div 
+        className="relative h-[70px] w-full rounded-[40px] shadow-[0_10px_30px_rgba(0,0,0,0.15),0_0_25px_rgba(209,254,184,0.15)] flex items-center justify-between px-6 py-0 -mt-[25px] mb-0 pointer-events-auto"
+        style={{
+          background: 'rgba(255, 255, 255, 0.08)',
+          backdropFilter: 'blur(35px)',
+          WebkitBackdropFilter: 'blur(35px)',
+          border: '1px solid rgba(209, 254, 184, 0.35)',
+        }}
+      >
+        {/* Ambient Inner Glow/Highlight */}
+        <div className="absolute inset-0 rounded-[40px] pointer-events-none border border-white/10" style={{ boxShadow: 'inset 0 1px 2px rgba(255,255,255,0.2), inset 0 -1px 4px rgba(0,0,0,0.2)' }} />
+
+        {/* Logo Area */}
+        <div className="flex-shrink-0 flex items-center gap-3 relative z-10 w-[120px] md:w-[200px]">
+          <Link to="/" className="relative flex items-center justify-center transition-transform hover:scale-105 duration-500">
+            <Logo className="w-14 h-14 sm:w-16 sm:h-16" imgStyle={{ height: '60px', width: '60px', marginTop: '1px' }} />
+          </Link>
+          <span className="hidden lg:block text-lg font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-[#7ab18a] via-[#b5d98d] to-[#7ab18a] bg-[length:200%_auto] animate-[shine_4s_linear_infinite] drop-shadow-[0_0_10px_rgba(122,177,138,0.2)]">
+            Instrumuzicover
+          </span>
+        </div>
+
+        {/* Navigation Links (Desktop) */}
+        <div className="hidden md:flex items-center justify-center flex-1 h-full mx-2 lg:mx-4">
+          <div className="flex items-center space-x-1">
+            {activeLinks.map(link => (
+              <NavItem 
+                key={link.path}
+                {...link}
+                isActive={location.pathname === link.path}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Right Area: Action button & Mobile Toggle */}
+        <div className="flex-shrink-0 flex items-center justify-end gap-3 sm:gap-4 relative z-10 w-[90px] sm:w-[120px] md:w-[200px]">
+          {/* Action button */}
+          {user ? (
+            <div className="relative hidden sm:block">
+              <button 
+                onClick={() => setShowLogoutConfirm(!showLogoutConfirm)} 
+                className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-[24px] transition-all duration-300 hover:scale-105 group"
+                style={{ 
+                  background: 'rgba(255,255,255,0.05)', 
+                  border: '1px solid rgba(209,254,184,0.25)',
+                  boxShadow: '0 0 15px rgba(209,254,184,0.1)'
+                }}
+              >
+                {user.photoURL ? (
+                  <img src={user.photoURL} alt="" className="w-7 h-7 rounded-full object-cover group-hover:shadow-[0_0_10px_#D1FEB8] transition-shadow border border-[#D1FEB8]/30" />
+                ) : (
+                  <User className="w-5 h-5 text-[#7ab18a]" />
+                )}
+                <span className="hidden xl:block text-xs font-bold text-[#7ab18a] truncate max-w-[80px]">
+                  {isAdmin ? 'Admin' : (user.displayName || 'User')}
+                </span>
+              </button>
+              
+              <AnimatePresence>
+                {showLogoutConfirm && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setShowLogoutConfirm(false)} />
+                    <motion.div 
+                      initial={{ opacity: 0, y: 15, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 15, scale: 0.95 }}
+                      transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                      className="absolute top-[calc(100%+20px)] right-0 bg-[rgba(20,20,20,0.85)] backdrop-blur-2xl border border-[#D1FEB8]/20 rounded-[24px] shadow-[0_20px_40px_rgba(0,0,0,0.4),0_0_20px_rgba(209,254,184,0.1)] p-4 flex flex-col gap-3 z-50 min-w-[220px]"
+                    >
+                      <p className="text-sm text-zinc-200 font-medium text-center">Ready to log out?</p>
+                      <div className="flex flex-col gap-2">
+                        <button onClick={() => { logout(); setShowLogoutConfirm(false); }} className="w-full bg-red-500/10 hover:bg-red-500/20 text-red-400 font-bold py-2.5 px-4 rounded-[16px] transition-colors border border-red-500/20 shadow-inner">
+                          Logout
+                        </button>
+                        <button onClick={() => setShowLogoutConfirm(false)} className="w-full bg-white/5 hover:bg-white/10 text-zinc-300 font-medium py-2.5 px-4 rounded-[16px] transition-colors border border-white/10 shadow-inner">
+                          Cancel
+                        </button>
+                      </div>
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+            </div>
+          ) : (
+            <button 
+              onClick={login}
+              className="px-5 py-2.5 rounded-[24px] font-bold text-sm sm:text-base transition-all duration-300 hover:scale-105 group overflow-hidden relative hidden sm:block"
+              style={{ 
+                background: 'rgba(255,255,255,0.06)', 
+                border: '1px solid rgba(209,254,184,0.3)',
+                boxShadow: '0 0 20px rgba(209,254,184,0.15)'
+              }}
+            >
+              <span className="relative z-10 text-[#D1FEB8] drop-shadow-[0_0_5px_rgba(209,254,184,0.5)]">Log In</span>
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[#D1FEB8]/10 to-transparent -translate-x-full group-hover:translate-x-full duration-1000 transition-transform" />
+            </button>
+          )}
+
+          {/* Mobile Toggle */}
+          <button 
+            onClick={() => setIsOpen(!isOpen)} 
+            className="md:hidden p-2 rounded-full text-[#7ab18a] hover:bg-white/10 transition-colors ml-auto relative group pointer-events-auto z-50"
+          >
+            {isOpen ? <X className="w-7 h-7 drop-shadow-[0_0_8px_#7ab18a]" /> : <img src="https://res.cloudinary.com/dj52ig0l7/image/upload/v1780716914/bgfasuaaieliwlfulzz9.png" alt="Menu" className="w-8 h-8 object-contain drop-shadow-[0_0_8px_rgba(122,177,138,0.6)] group-hover:drop-shadow-[0_0_12px_rgba(122,177,138,0.8)] transition-all" referrerPolicy="no-referrer" />}
+          </button>
+        </div>
+      </div>
+
+      {/* Mobile Menu Dropdown */}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div 
+            initial={{ opacity: 0, y: -10, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -10, scale: 0.98 }}
+            transition={{ type: "spring", stiffness: 350, damping: 25 }}
+            className="absolute top-[calc(100%+16px)] left-0 right-0 z-40 md:hidden p-4 rounded-[32px] overflow-hidden pointer-events-auto"
+            style={{
+              background: 'rgba(20, 20, 20, 0.75)',
+              backdropFilter: 'blur(45px)',
+              WebkitBackdropFilter: 'blur(45px)',
+              border: '1px solid rgba(209, 254, 184, 0.25)',
+              boxShadow: '0 25px 50px rgba(0,0,0,0.5), 0 0 35px rgba(209,254,184,0.1)'
+            }}
+          >
+            <div className="flex flex-col gap-2">
+              {activeLinks.map(link => {
+                const isActive = location.pathname === link.path;
+                return (
+                  <Link 
+                    key={link.path}
+                    to={link.path} 
+                    onClick={() => setIsOpen(false)} 
+                    className={`flex items-center gap-4 p-3.5 rounded-[20px] transition-all duration-300 ${isActive ? 'bg-[#D1FEB8]/15 border border-[#D1FEB8]/40 shadow-[inset_0_0_20px_rgba(209,254,184,0.15)]' : 'hover:bg-white/5 border border-transparent'}`}
+                  >
+                    <img 
+                      src={isActive ? link.activeImg : link.defaultImg} 
+                      alt={link.label} 
+                      className={`w-10 h-10 object-contain transition-opacity duration-300 drop-shadow-md ${isActive ? 'opacity-100 filter drop-shadow-[0_0_8px_rgba(209,254,184,0.6)]' : 'opacity-70'}`}
+                      referrerPolicy="no-referrer"
+                    />
+                    <span className={`text-base font-bold tracking-wide ${isActive ? 'text-[#b5d98d] drop-shadow-[0_0_5px_rgba(209,254,184,0.3)]' : 'text-zinc-300'}`}>
+                      {link.label}
+                    </span>
+                  </Link>
+                );
+              })}
+            </div>
+            
+            {user ? (
+              <div className="mt-4 pt-4 border-t border-white/10 flex flex-col gap-4">
+                <div className="flex items-center gap-4 px-2">
+                  {user.photoURL ? (
+                    <img src={user.photoURL} alt="" className="w-12 h-12 rounded-full border-2 border-[#D1FEB8]/40 shadow-[0_0_15px_rgba(209,254,184,0.2)]" />
+                  ) : (
+                    <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center border-2 border-[#D1FEB8]/40 shadow-[0_0_15px_rgba(209,254,184,0.2)]">
+                      <User className="w-6 h-6 text-[#D1FEB8]" />
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-white font-bold text-lg">{user.displayName || 'User'}</p>
+                    <p className="text-zinc-400 text-sm">{user.email}</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => { logout(); setIsOpen(false); }}
+                  className="flex items-center justify-center gap-2 w-full bg-red-500/10 hover:bg-red-500/20 text-red-400 font-bold py-3.5 rounded-[20px] transition-colors border border-red-500/20 shadow-inner"
+                >
+                  <LogOut className="w-5 h-5" /> Logout
+                </button>
+              </div>
+            ) : (
+              <div className="mt-4 pt-4 border-t border-white/10">
+                <button 
+                  onClick={() => { login(); setIsOpen(false); }}
+                  className="flex items-center justify-center w-full py-4 rounded-[20px] font-bold transition-all duration-300 relative overflow-hidden"
+                  style={{ 
+                    background: 'rgba(255,255,255,0.08)', 
+                    border: '1px solid rgba(209,254,184,0.4)',
+                    boxShadow: '0 0 20px rgba(209,254,184,0.15)'
+                  }}
+                >
+                   <span className="text-[#D1FEB8] drop-shadow-[0_0_5px_rgba(209,254,184,0.5)]">Log In to Instrumuzicover</span>
+                </button>
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </nav>
+  );
+}
+
+
 const Hero = ({ backgroundColor }: { backgroundColor?: string }) => (
   <section 
-    className="relative pt-24 pb-20 lg:pt-32 lg:pb-24 overflow-hidden transition-colors duration-300"
-    style={{ backgroundColor: backgroundColor || 'transparent' }}
+    className="relative overflow-hidden transition-colors duration-300"
+    style={{ 
+      backgroundColor: backgroundColor || 'transparent',
+      paddingTop: '70px',
+      paddingBottom: '17px'
+    }}
   >
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.6 }}
-          className="text-center"
+          className="text-center lg:text-left lg:max-w-2xl mx-auto lg:mx-0"
         >
-          <h1 className="text-5xl lg:text-6xl font-bold text-zinc-900 dark:text-white leading-[1.1] mb-6 tracking-tight">
-            Elevating <span className="text-emerald-600 dark:text-emerald-400">Music Production</span> Skills
+          <h1 
+            className="text-5xl lg:text-7xl font-bold leading-[1.1] mb-6 tracking-tight drop-shadow-xl"
+            style={{ fontFamily: 'Courier New, Courier, monospace', textAlign: 'center', fontWeight: 'bold', textDecorationLine: 'none', color: '#b5d98d' }}
+          >
+            Elevating <span style={{ color: '#7ab18a' }}>Music Production</span> Skills
           </h1>
-          <p className="text-lg text-zinc-600 dark:text-zinc-400 mb-10 max-w-md mx-auto leading-relaxed">
+          <p 
+            className="text-xl mb-10 max-w-2xl mx-auto leading-relaxed drop-shadow-md"
+            style={{ textAlign: 'center', color: '#21a721', fontFamily: 'Courier New, Courier, monospace', fontWeight: 'bold' }}
+          >
             Explore high-quality virtual instruments and professional music sheets designed to capture the sound of creativity.
           </p>
         </motion.div>
@@ -808,13 +915,14 @@ const Hero = ({ backgroundColor }: { backgroundColor?: string }) => (
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.8, delay: 0.2 }}
-          className="relative flex justify-center lg:justify-end"
+          className="relative flex justify-center lg:justify-end w-full lg:w-auto"
         >
-          <div className="w-full max-w-md aspect-square rounded-3xl overflow-hidden shadow-2xl">
+          <div className="relative w-full max-w-5xl lg:max-w-none lg:w-[135%] lg:-ml-[35%] xl:w-[150%] xl:-ml-[150px] z-10">
+            {/* Logo Container Frame - rendered directly to preserve its natural aspect ratio */}
             <img 
-              src="https://pixabay.com/images/download/u_op8btczor7-green-10179478_1280.png" 
-              alt="Music Studio" 
-              className="w-full h-full object-cover"
+              src="https://res.cloudinary.com/dj52ig0l7/image/upload/v1780691013/umvpbwlqxiurxsddw4w4.png"
+              alt="Logo Container Frame"
+              className="w-full h-auto object-contain block relative z-10"
               referrerPolicy="no-referrer"
               fetchPriority="high"
               loading="eager"
@@ -887,7 +995,7 @@ const About = () => (
               <img src="https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&q=80&w=400" alt="Microphone" className="rounded-2xl shadow-lg" referrerPolicy="no-referrer" />
             </div>
             <div className="pt-8 space-y-4">
-              <img src="https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?auto=format&fit=crop&q=80&w=400" alt="Piano" className="rounded-2xl shadow-lg" referrerPolicy="no-referrer" />
+              <img src="/src/assets/images/regenerated_image_1780633271469.png" alt="Piano" className="rounded-2xl shadow-lg" referrerPolicy="no-referrer" />
               <img src="https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&q=80&w=400" alt="DJ" className="rounded-2xl shadow-lg" referrerPolicy="no-referrer" />
             </div>
           </div>
@@ -895,7 +1003,7 @@ const About = () => (
         </div>
         
         <div className="order-1 text-center flex flex-col items-center justify-center">
-          <h2 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#42ae66] via-white to-[#42ae66] bg-[length:200%_auto] animate-[shine_3s_linear_infinite] mb-8 tracking-tight">About Instrumuzicover</h2>
+          <h2 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#7ab18a] via-[#b5d98d] to-[#7ab18a] bg-[length:200%_auto] animate-[shine_3s_linear_infinite] mb-8 tracking-tight">About Instrumuzicover</h2>
           <div className="space-y-6 text-lg text-zinc-600 dark:text-zinc-400 leading-relaxed">
             <p>
               I specialize in reimagining iconic tracks and modern hits through the power of virtual instruments. My goal is to explore the intersection of technology and artistry, delivering high-quality digital performances that breathe new life into your favorite music.
@@ -1000,15 +1108,18 @@ const Footer = () => {
   const { isAdmin } = useContext(AuthContext);
   
   return (
-  <footer className="bg-transparent border-t border-zinc-800/50 pt-20 pb-10 transition-colors duration-300">
+  <footer className="bg-transparent pt-10 pb-10 transition-colors duration-300">
+    <div className="leaf-separator">
+      <span>🍃</span>
+    </div>
     <div className="max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-12 mb-16">
         <div className="col-span-2">
           <div className="flex items-center gap-2 mb-6">
             <Logo className="w-14 h-14" />
-            <span className="text-xl font-bold tracking-tight text-zinc-900 dark:text-white">Instrumuzicover</span>
+            <span className="text-xl font-bold tracking-tight" style={{ fontFamily: 'Courier New, Courier, monospace', fontWeight: 'bold', color: '#7ab18a' }}>Instrumuzicover</span>
           </div>
-          <p className="text-zinc-500 dark:text-zinc-400 max-w-sm mb-8">
+          <p className="max-w-sm mb-8" style={{ fontFamily: 'Courier New, Courier, monospace', fontWeight: 'bold', color: '#b5d98d' }}>
             The ultimate destination for virtual instruments and music sheets. Elevate your production with professional tools.
           </p>
           <div className="flex gap-4">
@@ -1029,24 +1140,24 @@ const Footer = () => {
           </div>
         </div>
         
-        <div>
-          <h4 className="font-bold text-zinc-900 dark:text-white mb-6">Quick Links</h4>
-          <ul className="space-y-4 text-zinc-500 dark:text-zinc-400">
-            <li><Link to="/" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Home</Link></li>
-            <li><Link to="/performance" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Performance</Link></li>
-            <li><Link to="/playlist" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Playlist</Link></li>
+        <div style={{ color: '#7ab18a' }}>
+          <h4 className="font-bold mb-6" style={{ fontFamily: 'Courier New, Courier, monospace', fontWeight: 'bold', color: '#7ab18a', fontSize: '20px' }}>Quick Links</h4>
+          <ul className="space-y-4" style={{ color: '#7ab18a', fontFamily: 'Courier New, Courier, monospace', fontWeight: 'bold' }}>
+            <li><Link to="/" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors" style={{ color: '#b5d98d' }}>Home</Link></li>
+            <li><Link to="/performance" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors" style={{ color: '#b5d98d' }}>Performance</Link></li>
+            <li><Link to="/playlist" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors" style={{ color: '#b5d98d' }}>Playlist</Link></li>
             {isAdmin && (
-              <li><Link to="/media" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Media</Link></li>
+              <li><Link to="/media" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors" style={{ color: '#b5d98d' }}>Media</Link></li>
             )}
-            <li><Link to="/products" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Product</Link></li>
-            <li><Link to="/contact" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Contact</Link></li>
-            <li><Link to="/about" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">About</Link></li>
+            <li><Link to="/products" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors" style={{ color: '#b5d98d' }}>Product</Link></li>
+            <li><Link to="/contact" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors" style={{ color: '#b5d98d' }}>Contact</Link></li>
+            <li><Link to="/about" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors" style={{ color: '#b5d98d' }}>About</Link></li>
           </ul>
         </div>
         
         <div>
-          <h4 className="font-bold text-zinc-900 dark:text-white mb-6">Newsletter</h4>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">Subscribe to get updates on new releases and offers.</p>
+          <h4 className="font-bold mb-6" style={{ fontFamily: 'Courier New, Courier, monospace', fontWeight: 'bold', color: '#7ab18a', fontSize: '20px' }}>Newsletter</h4>
+          <p className="text-sm mb-4" style={{ fontFamily: 'Courier New, Courier, monospace', fontWeight: 'bold', color: '#b5d98d' }}>Subscribe to get updates on new releases and offers.</p>
           <div className="flex gap-2">
             <input type="email" placeholder="Email" className="bg-zinc-100 dark:bg-zinc-800 border-none rounded-lg px-4 py-2 text-sm w-full focus:ring-2 focus:ring-emerald-600 dark:text-white" />
             <button className="bg-zinc-900 dark:bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-bold">Join</button>
@@ -1054,11 +1165,15 @@ const Footer = () => {
         </div>
       </div>
       
-      <div className="border-t border-zinc-100 dark:border-zinc-800 pt-8 flex flex-row justify-between items-center gap-4 text-sm text-zinc-400">
-        <p>© 2026 Instrumuzicover. All rights reserved.</p>
-        <div className="flex gap-8">
-          <a href="#" className="hover:text-zinc-600 dark:hover:text-zinc-400">Privacy Policy</a>
-          <a href="#" className="hover:text-zinc-600 dark:hover:text-zinc-400">Terms of Service</a>
+      <div className="leaf-separator">
+        <span>🍃</span>
+      </div>
+      
+      <div className="flex flex-row justify-between items-center gap-4 text-sm text-zinc-400">
+        <p style={{ color: '#b5d98d', fontFamily: 'Courier New, Courier, monospace', fontWeight: 'bold' }}>© 2026 Instrumuzicover. All rights reserved.</p>
+        <div className="flex gap-8" style={{ color: '#b5d98d', fontFamily: 'Courier New, Courier, monospace', fontWeight: 'bold' }}>
+          <a href="#" className="hover:text-zinc-600 dark:hover:text-zinc-400" style={{ color: '#b5d98d' }}>Privacy Policy</a>
+          <a href="#" className="hover:text-zinc-600 dark:hover:text-zinc-400" style={{ color: '#b5d98d' }}>Terms of Service</a>
         </div>
       </div>
     </div>
@@ -1067,25 +1182,1577 @@ const Footer = () => {
 };
 
 const ProductsPage = () => {
+  const { isAdmin } = useContext(AuthContext);
+  const [notifyEmail, setNotifyEmail] = useState('');
+  const [isNotifying, setIsNotifying] = useState(false);
+  const [isNotified, setIsNotified] = useState(false);
+  const [newsletterEmail, setNewsletterEmail] = useState('');
+  const [newsletterSubscribed, setNewsletterSubscribed] = useState(false);
+
+  const handleNotifySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!notifyEmail) return;
+    setIsNotifying(true);
+    try {
+      await addDoc(collection(db, 'product_notifications'), {
+        email: notifyEmail,
+        timestamp: new Date().toISOString()
+      });
+      setIsNotified(true);
+      setNotifyEmail('');
+      setTimeout(() => setIsNotified(false), 5000);
+    } catch (err) {
+      console.log("Error storing product notification:", err);
+    } finally {
+      setIsNotifying(false);
+    }
+  };
+
+  const handleNewsletterSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newsletterEmail) return;
+    try {
+      await addDoc(collection(db, 'newsletter_subscribers'), {
+        email: newsletterEmail,
+        timestamp: new Date().toISOString()
+      });
+    } catch (err) {
+      console.log("Error subscribing to newsletter:", err);
+    }
+    setNewsletterSubscribed(true);
+    setNewsletterEmail('');
+    setTimeout(() => setNewsletterSubscribed(false), 5000);
+  };
+
   return (
-    <div className="pt-20">
-      <DynamicEditablePage 
-        collectionName="products_sections"
-        fixedSections={[{ id: 'products-list', type: 'products-list', order: 0 }]}
-        renderExtraSection={(section) => section.type === 'products-list' && <FeaturedProducts />}
-      />
+    <div className="product-page-wrapper-custom min-h-screen">
+      <style>{`
+        .product-page-wrapper-custom {
+          min-height: 100vh;
+          color: #082626;
+          background:
+            radial-gradient(circle at 12% 20%, rgba(155, 232, 89, 0.38), transparent 28%),
+            radial-gradient(circle at 88% 30%, rgba(93, 205, 58, 0.28), transparent 32%),
+            linear-gradient(135deg, #f9fff5 0%, #edfce8 45%, #fbfff9 100%);
+          overflow-x: hidden;
+          font-family: "Inter", "Segoe UI", Arial, sans-serif;
+          position: relative;
+        }
+
+        .product-page-wrapper-custom * {
+          box-sizing: border-box;
+          font-family: "Inter", "Segoe UI", Arial, sans-serif;
+        }
+
+        .product-page-wrapper-custom .product-page {
+          position: relative;
+          min-height: 100vh;
+          padding: 120px 7% 60px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          z-index: 10;
+        }
+
+        .product-page-wrapper-custom .product-page::before,
+        .product-page-wrapper-custom .product-page::after {
+          content: "";
+          position: absolute;
+          border-radius: 50%;
+          background: rgba(107, 203, 62, 0.2);
+          filter: blur(45px);
+          z-index: 0;
+        }
+
+        .product-page-wrapper-custom .product-page::before {
+          width: 300px;
+          height: 300px;
+          top: 80px;
+          left: -90px;
+        }
+
+        .product-page-wrapper-custom .product-page::after {
+          width: 380px;
+          height: 380px;
+          right: -120px;
+          bottom: 90px;
+        }
+
+        .product-page-wrapper-custom .product-hero {
+          position: relative;
+          z-index: 2;
+          width: 100%;
+          max-width: 1320px;
+          min-height: 680px;
+          border-radius: 42px;
+          padding: 80px 7%;
+          overflow: hidden;
+          background:
+            linear-gradient(120deg, rgba(255,255,255,0.75), rgba(238,255,230,0.58)),
+            radial-gradient(circle at 5% 65%, rgba(54, 173, 24, 0.25), transparent 35%),
+            radial-gradient(circle at 95% 35%, rgba(88, 204, 56, 0.25), transparent 32%);
+          box-shadow:
+            0 30px 80px rgba(42, 112, 35, 0.16),
+            inset 0 0 0 1px rgba(255,255,255,0.8);
+          display: grid;
+          grid-template-columns: 1fr 0.9fr;
+          align-items: center;
+          gap: 70px;
+        }
+
+        .product-page-wrapper-custom .product-hero::before {
+          content: "";
+          position: absolute;
+          inset: 18px;
+          border-radius: 34px;
+          border: 2px solid rgba(255,255,255,0.68);
+          pointer-events: none;
+          z-index: 1;
+        }
+
+        .product-page-wrapper-custom .music-lines {
+          position: absolute;
+          inset: 0;
+          opacity: 0.25;
+          background:
+            repeating-linear-gradient(
+              -12deg,
+              transparent 0,
+              transparent 42px,
+              rgba(92, 180, 47, 0.18) 44px,
+              transparent 47px
+            );
+          mask-image: linear-gradient(to right, transparent, #000 25%, #000 75%, transparent);
+          -webkit-mask-image: linear-gradient(to right, transparent, #000 25%, #000 75%, transparent);
+          pointer-events: none;
+        }
+
+        .product-page-wrapper-custom .leaf {
+          position: absolute;
+          width: 48px;
+          height: 24px;
+          background: linear-gradient(135deg, #8dea3d, #168c25);
+          border-radius: 100% 0 100% 0;
+          transform: rotate(-35deg);
+          box-shadow: inset -6px -3px 12px rgba(0,0,0,0.15);
+          opacity: 0.95;
+          z-index: 2;
+        }
+
+        .product-page-wrapper-custom .leaf::after {
+          content: "";
+          position: absolute;
+          width: 80%;
+          height: 1px;
+          top: 50%;
+          left: 8%;
+          background: rgba(255,255,255,0.65);
+          transform: rotate(-20deg);
+        }
+
+        .product-page-wrapper-custom .leaf.one {
+          top: 45px;
+          left: 60px;
+        }
+
+        .product-page-wrapper-custom .leaf.two {
+          top: 95px;
+          right: 75px;
+          transform: rotate(28deg);
+          width: 36px;
+          height: 18px;
+        }
+
+        .product-page-wrapper-custom .leaf.three {
+          bottom: 105px;
+          right: 95px;
+          transform: rotate(-20deg);
+          width: 55px;
+          height: 27px;
+        }
+
+        .product-page-wrapper-custom .leaf.four {
+          bottom: 150px;
+          left: 120px;
+          transform: rotate(32deg);
+          width: 38px;
+          height: 19px;
+        }
+
+        .product-page-wrapper-custom .hero-content {
+          position: relative;
+          z-index: 3;
+        }
+
+        .product-page-wrapper-custom .badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 9px;
+          padding: 12px 20px;
+          border-radius: 999px;
+          color: #147a22;
+          font-weight: 800;
+          font-size: 14px;
+          background: rgba(232, 255, 218, 0.88);
+          border: 1px solid rgba(92, 180, 47, 0.22);
+          box-shadow: 0 10px 28px rgba(34, 126, 28, 0.13);
+          margin-bottom: 30px;
+        }
+
+        .product-page-wrapper-custom h1 {
+          font-size: clamp(46px, 6vw, 84px);
+          line-height: 1.05;
+          letter-spacing: -4px;
+          color: #082929;
+          margin-bottom: 25px;
+        }
+
+        .product-page-wrapper-custom h1 span {
+          color: #20a627;
+          position: relative;
+          display: inline-block;
+        }
+
+        .product-page-wrapper-custom h1 span::after {
+          content: "";
+          position: absolute;
+          left: 0;
+          bottom: 3px;
+          width: 100%;
+          height: 14px;
+          background: url("data:image/svg+xml,%3Csvg width='300' height='35' viewBox='0 0 300 35' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 23C66 8 139 8 295 18' stroke='%2320A627' stroke-width='7' stroke-linecap='round'/%3E%3C/svg%3E") center/100% 100% no-repeat;
+          transform: translateY(14px);
+        }
+
+        .product-page-wrapper-custom .subtitle {
+          max-width: 540px;
+          font-size: 18px;
+          line-height: 1.8;
+          color: #1f3d3b;
+          margin-bottom: 36px;
+        }
+
+        .product-page-wrapper-custom .notify-card {
+          max-width: 530px;
+          padding: 18px;
+          border-radius: 999px;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          background: rgba(255,255,255,0.76);
+          box-shadow:
+            0 18px 40px rgba(38, 111, 28, 0.13),
+            inset 0 0 0 1px rgba(255,255,255,0.8);
+          backdrop-filter: blur(14px);
+        }
+
+        .product-page-wrapper-custom .notify-card input {
+          flex: 1;
+          height: 54px;
+          border: none;
+          outline: none;
+          background: transparent;
+          padding: 0 18px;
+          font-size: 15px;
+          color: #173936;
+        }
+
+        .product-page-wrapper-custom .notify-card input::placeholder {
+          color: #7a928e;
+        }
+
+        .product-page-wrapper-custom .notify-card button {
+          height: 54px;
+          padding: 0 28px;
+          border: none;
+          border-radius: 999px;
+          cursor: pointer;
+          color: white;
+          font-size: 15px;
+          font-weight: 800;
+          background: linear-gradient(135deg, #6bd932, #02911e);
+          box-shadow: 0 14px 28px rgba(18, 149, 31, 0.32);
+          transition: 0.3s ease;
+          white-space: nowrap;
+        }
+
+        .product-page-wrapper-custom .notify-card button:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 18px 35px rgba(18, 149, 31, 0.43);
+        }
+
+        .product-page-wrapper-custom .coming-card {
+          position: relative;
+          z-index: 3;
+          padding: 45px;
+          min-height: 420px;
+          border-radius: 36px;
+          background: rgba(255,255,255,0.84);
+          box-shadow:
+            0 30px 80px rgba(34, 109, 32, 0.18),
+            inset 0 0 0 1px rgba(255,255,255,0.85);
+          backdrop-filter: blur(18px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          overflow: hidden;
+        }
+
+        .product-page-wrapper-custom .coming-card::before {
+          content: "";
+          position: absolute;
+          width: 260px;
+          height: 260px;
+          border-radius: 50%;
+          background: rgba(103, 220, 62, 0.18);
+          filter: blur(25px);
+          top: -80px;
+          right: -80px;
+        }
+
+        .product-page-wrapper-custom .coming-box {
+          position: relative;
+          z-index: 2;
+          text-align: center;
+        }
+
+        .product-page-wrapper-custom .product-icon {
+          width: 130px;
+          height: 130px;
+          border-radius: 38px;
+          display: grid;
+          place-items: center;
+          margin: 0 auto 28px;
+          color: white;
+          font-size: 54px;
+          background: linear-gradient(135deg, #75df35, #068e22);
+          box-shadow:
+            0 22px 40px rgba(18, 149, 31, 0.35),
+            inset 0 0 0 1px rgba(255,255,255,0.35);
+          transform: rotate(-4deg);
+        }
+
+        .product-page-wrapper-custom .coming-box h2 {
+          font-size: clamp(32px, 4vw, 52px);
+          letter-spacing: -2px;
+          color: #092b29;
+          margin-bottom: 14px;
+        }
+
+        .product-page-wrapper-custom .coming-box p {
+          color: #31514d;
+          line-height: 1.7;
+          font-size: 16px;
+          max-width: 390px;
+          margin: 0 auto 26px;
+        }
+
+        .product-page-wrapper-custom .status-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+          padding: 13px 22px;
+          border-radius: 999px;
+          color: #117923;
+          font-weight: 800;
+          background: #efffec;
+          box-shadow: inset 0 0 0 1px rgba(58, 188, 61, 0.18);
+        }
+
+        .product-page-wrapper-custom .status-pill i {
+          animation: spin 2.4s linear infinite;
+        }
+
+        .product-page-wrapper-custom .floating-note {
+          position: absolute;
+          color: rgba(30, 157, 36, 0.24);
+          font-size: 44px;
+          z-index: 1;
+          animation: float 5s ease-in-out infinite;
+        }
+
+        .product-page-wrapper-custom .note-one {
+          left: 8%;
+          top: 22%;
+        }
+
+        .product-page-wrapper-custom .note-two {
+          right: 10%;
+          bottom: 18%;
+          animation-delay: 1s;
+        }
+
+        .product-page-wrapper-custom .note-three {
+          right: 28%;
+          top: 12%;
+          font-size: 30px;
+          animation-delay: 1.7s;
+        }
+
+        .product-page-wrapper-custom .footer {
+          position: relative;
+          z-index: 2;
+          width: 100%;
+          max-width: 1320px;
+          margin: 46px auto 0;
+          padding: 55px 5% 28px;
+          border-radius: 36px;
+          background: rgba(255,255,255,0.56);
+          box-shadow: 0 20px 60px rgba(55, 110, 44, 0.12);
+          backdrop-filter: blur(16px);
+        }
+
+        .product-page-wrapper-custom .footer-grid {
+          display: grid;
+          grid-template-columns: 1.2fr 0.8fr 1.2fr;
+          gap: 60px;
+          margin-bottom: 34px;
+        }
+
+        .product-page-wrapper-custom .footer h3 {
+          font-size: 22px;
+          margin-bottom: 22px;
+          color: #092b29;
+        }
+
+        .product-page-wrapper-custom .footer h3 i {
+          color: #25a92b;
+          margin-right: 8px;
+        }
+
+        .product-page-wrapper-custom .footer p {
+          color: #244440;
+          line-height: 1.8;
+          max-width: 350px;
+        }
+
+        .product-page-wrapper-custom .footer-links {
+          list-style: none;
+          display: grid;
+          gap: 12px;
+        }
+
+        .product-page-wrapper-custom .footer-links a {
+          text-decoration: none;
+          color: #143734;
+          font-weight: 600;
+          display: flex;
+          justify-content: space-between;
+          transition: 0.25s ease;
+        }
+
+        .product-page-wrapper-custom .footer-links a:hover {
+          color: #159b28;
+          transform: translateX(5px);
+        }
+
+        .product-page-wrapper-custom .newsletter {
+          display: flex;
+          max-width: 390px;
+          margin-top: 24px;
+          background: white;
+          border-radius: 999px;
+          padding: 8px;
+          box-shadow: 0 12px 30px rgba(43, 103, 39, 0.12);
+        }
+
+        .product-page-wrapper-custom .newsletter input {
+          height: 48px;
+          box-shadow: none;
+          border: none;
+          padding: 0 18px;
+          border-radius: 999px;
+          width: 100%;
+        }
+
+        .product-page-wrapper-custom .newsletter button {
+          border: none;
+          min-width: 100px;
+          border-radius: 999px;
+          background: linear-gradient(135deg, #57ce31, #07931f);
+          color: white;
+          font-weight: 800;
+          cursor: pointer;
+        }
+
+        .product-page-wrapper-custom .footer-bottom {
+          border-top: 1px solid rgba(36, 94, 40, 0.13);
+          padding-top: 22px;
+          display: flex;
+          justify-content: space-between;
+          gap: 20px;
+          flex-wrap: wrap;
+          font-size: 14px;
+          color: #173936;
+        }
+
+        .product-page-wrapper-custom .footer-bottom a {
+          color: #173936;
+          text-decoration: none;
+          margin-left: 24px;
+        }
+
+        .product-page-wrapper-custom .footer-bottom a:hover {
+          color: #159b28;
+        }
+
+        @keyframes float {
+          0%, 100% {
+            transform: translateY(0) rotate(0deg);
+          }
+
+          50% {
+            transform: translateY(-18px) rotate(8deg);
+          }
+        }
+
+        @keyframes spin {
+          to {
+            transform: rotate(360deg);
+          }
+        }
+
+        @media (max-width: 1050px) {
+          .product-page-wrapper-custom .product-hero {
+            grid-template-columns: 1fr;
+            padding: 60px 6%;
+            gap: 45px;
+          }
+
+          .product-page-wrapper-custom .coming-card {
+            max-width: 760px;
+          }
+
+          .product-page-wrapper-custom .footer-grid {
+            grid-template-columns: 1fr 1fr;
+          }
+        }
+
+        @media (max-width: 700px) {
+          .product-page-wrapper-custom .product-page {
+            padding: 100px 4% 40px;
+          }
+
+          .product-page-wrapper-custom .product-hero {
+            border-radius: 28px;
+            padding: 45px 22px;
+          }
+
+          .product-page-wrapper-custom .product-hero::before {
+            inset: 10px;
+            border-radius: 22px;
+          }
+
+          .product-page-wrapper-custom h1 {
+            letter-spacing: -2px;
+          }
+
+          .product-page-wrapper-custom .notify-card {
+            border-radius: 26px;
+            flex-direction: column;
+            align-items: stretch;
+            padding: 14px;
+          }
+
+          .product-page-wrapper-custom .notify-card input {
+            width: 100%;
+          }
+
+          .product-page-wrapper-custom .notify-card button {
+            width: 100%;
+          }
+
+          .product-page-wrapper-custom .coming-card {
+            padding: 32px 20px;
+            border-radius: 26px;
+            min-height: 360px;
+          }
+
+          .product-page-wrapper-custom .product-icon {
+            width: 105px;
+            height: 105px;
+            font-size: 44px;
+            border-radius: 30px;
+          }
+
+          .product-page-wrapper-custom .footer-grid {
+            grid-template-columns: 1fr;
+            gap: 38px;
+          }
+
+          .product-page-wrapper-custom .footer-bottom {
+            flex-direction: column;
+          }
+
+          .product-page-wrapper-custom .footer-bottom a {
+            margin-left: 0;
+            margin-right: 18px;
+          }
+        }
+      `}</style>
+      <main className="product-page">
+        <section className="product-hero">
+          <div className="music-lines"></div>
+
+          <span className="leaf one"></span>
+          <span className="leaf two"></span>
+          <span className="leaf three"></span>
+          <span className="leaf four"></span>
+
+          <i className="fa-solid fa-music floating-note note-one"></i>
+          <i className="fa-solid fa-headphones floating-note note-two"></i>
+          <i className="fa-solid fa-guitar floating-note note-three"></i>
+
+          <div className="hero-content">
+            <div className="badge">
+              <i className="fa-solid fa-leaf"></i>
+              Product Page
+            </div>
+
+            <h1>
+              Our products are <br />
+              <span>coming soon</span>
+            </h1>
+
+            <p className="subtitle">
+              We are preparing a fresh collection of virtual instruments, music sheets,
+              and creative tools designed to elevate your sound.
+            </p>
+
+            {isNotified ? (
+              <div className="max-w-[530px] p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 animate-bounce">
+                <span>🔔</span> Awesome! You will be notified immediately when we launch.
+              </div>
+            ) : (
+              <form className="notify-card" onSubmit={handleNotifySubmit}>
+                <input 
+                  type="email" 
+                  placeholder="Enter your email for updates" 
+                  required 
+                  value={notifyEmail}
+                  onChange={(e) => setNotifyEmail(e.target.value)}
+                />
+                <button type="submit" disabled={isNotifying}>
+                  {isNotifying ? (
+                    <span>Submitting...</span>
+                  ) : (
+                    <>
+                      <i className="fa-solid fa-bell"></i>
+                      Notify Me
+                    </>
+                  )}
+                </button>
+              </form>
+            )}
+          </div>
+
+          <div className="coming-card">
+            <div className="coming-box">
+              <div className="product-icon">
+                <i className="fa-solid fa-box-open"></i>
+              </div>
+
+              <h2>Coming Soon</h2>
+
+              <p>
+                New music products are on the way. Stay tuned for something inspiring,
+                creative, and powerful.
+              </p>
+
+              <div className="status-pill">
+                <i className="fa-solid fa-spinner animate-spin"></i>
+                In Development
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <footer className="footer animate-fade-in">
+          <div className="footer-grid">
+            <div>
+              <h3>Instrumuzicover</h3>
+              <p>
+                The ultimate destination for virtual instruments and music sheets.
+                Elevate your production with professional tools.
+              </p>
+
+              <div className="socials" style={{ marginTop: '24px' }}>
+                <a href="https://instagram.com" target="_blank" rel="noopener noreferrer"><i className="fa-brands fa-instagram"></i></a>
+                <a href="https://twitter.com" target="_blank" rel="noopener noreferrer"><i className="fa-brands fa-twitter"></i></a>
+                <a href="https://www.youtube.com/@dylanchrey" target="_blank" rel="noopener noreferrer"><i className="fa-brands fa-youtube"></i></a>
+              </div>
+            </div>
+
+            <div>
+              <h3><i className="fa-solid fa-leaf"></i>Quick Links</h3>
+              <ul className="footer-links">
+                <li><Link to="/">Home <span>›</span></Link></li>
+                <li><Link to="/performance">Performance <span>›</span></Link></li>
+                <li><Link to="/playlist">Playlist <span>›</span></Link></li>
+                <li><Link to="/products">Product <span>›</span></Link></li>
+                <li><Link to="/contact">Contact <span>›</span></Link></li>
+                <li><Link to="/about">About <span>›</span></Link></li>
+                {isAdmin && <li><Link to="/media">Media <span>›</span></Link></li>}
+              </ul>
+            </div>
+
+            <div>
+              <h3><i className="fa-solid fa-leaf"></i>Newsletter</h3>
+              {newsletterSubscribed ? (
+                <p className="text-emerald-700 font-bold text-sm bg-emerald-50 p-3 rounded-2xl border border-emerald-200">
+                  🌱 Thank you! You've successfully subscribed to our newsletter.
+                </p>
+              ) : (
+                <>
+                  <p>
+                    Subscribe to get updates on new releases and offers.
+                  </p>
+                  <form className="newsletter" onSubmit={handleNewsletterSubmit}>
+                    <input 
+                      type="email" 
+                      placeholder="Enter your email" 
+                      required 
+                      value={newsletterEmail}
+                      onChange={(e) => setNewsletterEmail(e.target.value)}
+                    />
+                    <button type="submit">Join</button>
+                  </form>
+                </>
+              )}
+            </div>
+          </div>
+
+          <div className="footer-bottom">
+            <p>© 2026 Instrumuzicover. All rights reserved.</p>
+            <div>
+              <a href="#">Privacy Policy</a>
+              <a href="#">Terms of Service</a>
+            </div>
+          </div>
+        </footer>
+      </main>
     </div>
   );
 };
 
 const ContactPage = () => {
+  const { isAdmin } = useContext(AuthContext);
+  const [formData, setFormData] = useState({ firstName: '', lastName: '', email: '', message: '' });
+  const [isSending, setIsSending] = useState(false);
+  const [isSent, setIsSent] = useState(false);
+  const [newsletterEmail, setNewsletterEmail] = useState('');
+  const [newsletterSubscribed, setNewsletterSubscribed] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.email || !formData.firstName || !formData.message) return;
+    setIsSending(true);
+    try {
+      await addDoc(collection(db, 'contact_messages'), {
+        ...formData,
+        timestamp: new Date().toISOString()
+      });
+    } catch (err) {
+      console.log("Error storing contact message:", err);
+    }
+    setTimeout(() => {
+      setIsSending(false);
+      setIsSent(true);
+      setFormData({ firstName: '', lastName: '', email: '', message: '' });
+      setTimeout(() => setIsSent(false), 5000);
+    }, 1200);
+  };
+
+  const handleNewsletterSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newsletterEmail) return;
+    try {
+      await addDoc(collection(db, 'newsletter_subscribers'), {
+        email: newsletterEmail,
+        timestamp: new Date().toISOString()
+      });
+    } catch (err) {
+      console.log("Error subscribing to newsletter:", err);
+    }
+    setNewsletterSubscribed(true);
+    setNewsletterEmail('');
+    setTimeout(() => setNewsletterSubscribed(false), 5000);
+  };
+
   return (
-    <div className="pt-20">
-      <DynamicEditablePage 
-        collectionName="contact_sections"
-        fixedSections={[{ id: 'contact-form', type: 'contact-form', order: 0 }]}
-        renderExtraSection={(section) => section.type === 'contact-form' && <Contact />}
-      />
+    <div className="contact-page-wrapper-custom min-h-screen">
+      <style>{`
+        .contact-page-wrapper-custom {
+          min-height: 100vh;
+          color: #082626;
+          background:
+            radial-gradient(circle at 15% 15%, rgba(145, 224, 83, 0.35), transparent 28%),
+            radial-gradient(circle at 85% 30%, rgba(106, 206, 62, 0.28), transparent 30%),
+            linear-gradient(135deg, #f8fff4 0%, #eefce9 45%, #fafff8 100%);
+          overflow-x: hidden;
+          font-family: "Inter", "Segoe UI", Arial, sans-serif;
+          position: relative;
+        }
+
+        .contact-page-wrapper-custom * {
+          box-sizing: border-box;
+          font-family: "Inter", "Segoe UI", Arial, sans-serif;
+        }
+
+        .contact-page-wrapper-custom .page {
+          position: relative;
+          min-height: 100vh;
+          padding: 120px 7% 60px;
+        }
+
+        .contact-page-wrapper-custom .page::before,
+        .contact-page-wrapper-custom .page::after {
+          content: "";
+          position: absolute;
+          width: 280px;
+          height: 280px;
+          border-radius: 50%;
+          background: rgba(105, 196, 60, 0.18);
+          filter: blur(40px);
+          z-index: 0;
+        }
+
+        .contact-page-wrapper-custom .page::before {
+          top: 80px;
+          left: -90px;
+        }
+
+        .contact-page-wrapper-custom .page::after {
+          right: -100px;
+          bottom: 120px;
+        }
+
+        .contact-page-wrapper-custom .contact-section {
+          position: relative;
+          z-index: 2;
+          max-width: 1320px;
+          margin: 0 auto;
+          min-height: 720px;
+          border-radius: 42px;
+          padding: 70px 7%;
+          background:
+            linear-gradient(120deg, rgba(255,255,255,0.72), rgba(236,255,230,0.55)),
+            radial-gradient(circle at 0% 60%, rgba(58, 173, 27, 0.25), transparent 35%),
+            radial-gradient(circle at 95% 40%, rgba(88, 204, 56, 0.24), transparent 30%);
+          box-shadow:
+            0 30px 80px rgba(42, 112, 35, 0.15),
+            inset 0 0 0 1px rgba(255,255,255,0.8);
+          overflow: hidden;
+          display: grid;
+          grid-template-columns: 1fr 1.05fr;
+          gap: 70px;
+          align-items: center;
+        }
+
+        .contact-page-wrapper-custom .contact-section::before {
+          content: "";
+          position: absolute;
+          inset: 18px;
+          border-radius: 34px;
+          border: 2px solid rgba(255,255,255,0.65);
+          pointer-events: none;
+        }
+
+        .contact-page-wrapper-custom .music-lines {
+          position: absolute;
+          inset: 0;
+          opacity: 0.24;
+          background:
+            repeating-linear-gradient(
+              -12deg,
+              transparent 0,
+              transparent 42px,
+              rgba(92, 180, 47, 0.18) 44px,
+              transparent 47px
+            );
+          mask-image: linear-gradient(to right, transparent, #000 25%, #000 75%, transparent);
+          -webkit-mask-image: linear-gradient(to right, transparent, #000 25%, #000 75%, transparent);
+          pointer-events: none;
+        }
+
+        .contact-page-wrapper-custom .leaf {
+          position: absolute;
+          width: 45px;
+          height: 22px;
+          background: linear-gradient(135deg, #7ee235, #188c25);
+          border-radius: 100% 0 100% 0;
+          transform: rotate(-35deg);
+          box-shadow: inset -6px -3px 12px rgba(0,0,0,0.15);
+          opacity: 0.9;
+          z-index: 1;
+        }
+
+        .contact-page-wrapper-custom .leaf::after {
+          content: "";
+          position: absolute;
+          width: 80%;
+          height: 1px;
+          top: 50%;
+          left: 8%;
+          background: rgba(255,255,255,0.6);
+          transform: rotate(-20deg);
+        }
+
+        .contact-page-wrapper-custom .leaf.one {
+          top: 45px;
+          left: 60px;
+        }
+
+        .contact-page-wrapper-custom .leaf.two {
+          top: 110px;
+          right: 55px;
+          transform: rotate(25deg);
+          width: 34px;
+          height: 17px;
+        }
+
+        .contact-page-wrapper-custom .leaf.three {
+          bottom: 130px;
+          right: 90px;
+          transform: rotate(-20deg);
+          width: 52px;
+          height: 26px;
+        }
+
+        .contact-page-wrapper-custom .leaf.four {
+          bottom: 170px;
+          left: 120px;
+          transform: rotate(30deg);
+          width: 38px;
+          height: 19px;
+        }
+
+        .contact-page-wrapper-custom .left-content {
+          position: relative;
+          z-index: 3;
+        }
+
+        .contact-page-wrapper-custom .badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 11px 18px;
+          border-radius: 999px;
+          color: #147a22;
+          font-weight: 700;
+          font-size: 14px;
+          background: rgba(232, 255, 218, 0.85);
+          border: 1px solid rgba(92, 180, 47, 0.2);
+          box-shadow: 0 10px 28px rgba(34, 126, 28, 0.12);
+          margin-bottom: 30px;
+        }
+
+        .contact-page-wrapper-custom h1 {
+          font-size: clamp(42px, 5vw, 72px);
+          line-height: 1.08;
+          letter-spacing: -3px;
+          color: #082929;
+          margin-bottom: 24px;
+        }
+
+        .contact-page-wrapper-custom h1 span {
+          color: #20a627;
+          position: relative;
+          display: inline-block;
+        }
+
+        .contact-page-wrapper-custom h1 span::after {
+          content: "";
+          position: absolute;
+          left: 0;
+          bottom: 2px;
+          width: 100%;
+          height: 13px;
+          background: url("data:image/svg+xml,%3Csvg width='300' height='35' viewBox='0 0 300 35' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 23C66 8 139 8 295 18' stroke='%2320A627' stroke-width='7' stroke-linecap='round'/%3E%3C/svg%3E") center/100% 100% no-repeat;
+          transform: translateY(13px);
+        }
+
+        .contact-page-wrapper-custom .intro {
+          max-width: 460px;
+          font-size: 17px;
+          line-height: 1.8;
+          color: #1f3d3b;
+          margin-bottom: 34px;
+        }
+
+        .contact-page-wrapper-custom .info-cards {
+          display: grid;
+          gap: 18px;
+          max-width: 430px;
+        }
+
+        .contact-page-wrapper-custom .info-card {
+          display: flex;
+          align-items: center;
+          gap: 22px;
+          padding: 17px 24px;
+          border-radius: 999px;
+          background: rgba(255,255,255,0.78);
+          box-shadow:
+            0 15px 35px rgba(38, 111, 28, 0.13),
+            inset 0 0 0 1px rgba(255,255,255,0.75);
+          backdrop-filter: blur(14px);
+        }
+
+        .contact-page-wrapper-custom .info-icon {
+          width: 56px;
+          height: 56px;
+          border-radius: 50%;
+          display: grid;
+          place-items: center;
+          color: white;
+          font-size: 22px;
+          background: linear-gradient(135deg, #65d93a, #079223);
+          box-shadow: 0 12px 25px rgba(17, 160, 31, 0.35);
+          flex: 0 0 auto;
+        }
+
+        .contact-page-wrapper-custom .info-card small {
+          display: block;
+          font-size: 14px;
+          color: #31514d;
+          margin-bottom: 4px;
+        }
+
+        .contact-page-wrapper-custom .info-card strong {
+          font-size: 16px;
+          color: #082929;
+        }
+
+        .contact-page-wrapper-custom .socials {
+          display: flex;
+          gap: 16px;
+          margin-top: 5px;
+        }
+
+        .contact-page-wrapper-custom .socials a {
+          width: 32px;
+          height: 32px;
+          display: grid;
+          place-items: center;
+          border-radius: 50%;
+          color: white !important;
+          background: #0d7f2c;
+          text-decoration: none;
+          font-size: 14px;
+          transition: 0.3s ease;
+        }
+
+        .contact-page-wrapper-custom .socials a:hover {
+          transform: translateY(-4px);
+          background: #25b52d;
+        }
+
+        .contact-page-wrapper-custom .form-card {
+          position: relative;
+          z-index: 3;
+          padding: 46px;
+          border-radius: 36px;
+          background: rgba(255,255,255,0.86);
+          box-shadow:
+            0 30px 80px rgba(34, 109, 32, 0.18),
+            inset 0 0 0 1px rgba(255,255,255,0.85);
+          backdrop-filter: blur(18px);
+        }
+
+        .contact-page-wrapper-custom .form-row {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 18px;
+        }
+
+        .contact-page-wrapper-custom .field {
+          margin-bottom: 24px;
+        }
+
+        .contact-page-wrapper-custom .field label {
+          display: flex;
+          align-items: center;
+          gap: 9px;
+          font-weight: 700;
+          font-size: 14px;
+          color: #113231;
+          margin-bottom: 10px;
+        }
+
+        .contact-page-wrapper-custom .field label i {
+          color: #15912b;
+        }
+
+        .contact-page-wrapper-custom .input-wrap {
+          position: relative;
+        }
+
+        .contact-page-wrapper-custom .input-wrap i {
+          position: absolute;
+          top: 50%;
+          left: 20px;
+          transform: translateY(-50%);
+          color: #168c2d;
+          font-size: 18px;
+          width: 42px;
+          height: 42px;
+          border-radius: 14px;
+          display: grid;
+          place-items: center;
+          background: #f1fff0;
+        }
+
+        .contact-page-wrapper-custom input,
+        .contact-page-wrapper-custom textarea {
+          width: 100%;
+          border: 1px solid rgba(67, 129, 75, 0.18);
+          outline: none;
+          border-radius: 16px;
+          background: rgba(255,255,255,0.95);
+          color: #153735;
+          font-size: 16px;
+          box-shadow: 0 10px 24px rgba(36, 88, 32, 0.06);
+          transition: 0.25s ease;
+        }
+
+        .contact-page-wrapper-custom input {
+          height: 66px;
+          padding: 0 20px 0 75px;
+        }
+
+        .contact-page-wrapper-custom textarea {
+          min-height: 160px;
+          resize: vertical;
+          padding: 22px;
+          line-height: 1.6;
+        }
+
+        .contact-page-wrapper-custom input:focus,
+        .contact-page-wrapper-custom textarea:focus {
+          border-color: #3abc3d;
+          box-shadow: 0 0 0 5px rgba(75, 199, 57, 0.12);
+        }
+
+        .contact-page-wrapper-custom .send-btn {
+          position: relative;
+          width: 100%;
+          height: 72px;
+          border: none;
+          border-radius: 18px;
+          cursor: pointer;
+          color: white;
+          font-weight: 800;
+          font-size: 18px;
+          background: linear-gradient(135deg, #6bd932, #02911e);
+          box-shadow: 0 18px 35px rgba(18, 149, 31, 0.35);
+          overflow: hidden;
+          transition: 0.3s ease;
+        }
+
+        .contact-page-wrapper-custom .send-btn i {
+          margin-right: 12px;
+        }
+
+        .contact-page-wrapper-custom .send-btn::after {
+          content: "";
+          position: absolute;
+          width: 44px;
+          height: 44px;
+          right: 28px;
+          top: 50%;
+          transform: translateY(-50%);
+          border-radius: 50%;
+          background: rgba(255, 245, 85, 0.75);
+          box-shadow: 0 0 24px rgba(255, 245, 85, 0.8);
+        }
+
+        .contact-page-wrapper-custom .send-btn:hover {
+          transform: translateY(-3px);
+          box-shadow: 0 24px 45px rgba(18, 149, 31, 0.45);
+        }
+
+        .contact-page-wrapper-custom .footer {
+          position: relative;
+          z-index: 2;
+          max-width: 1320px;
+          margin: 46px auto 0;
+          padding: 55px 5% 28px;
+          border-radius: 36px;
+          background: rgba(255,255,255,0.56);
+          box-shadow: 0 20px 60px rgba(55, 110, 44, 0.12);
+          backdrop-filter: blur(16px);
+        }
+
+        .contact-page-wrapper-custom .footer-grid {
+          display: grid;
+          grid-template-columns: 1.2fr 0.8fr 1.2fr;
+          gap: 60px;
+          margin-bottom: 34px;
+        }
+
+        .contact-page-wrapper-custom .footer h3 {
+          font-size: 22px;
+          margin-bottom: 22px;
+          color: #092b29;
+        }
+
+        .contact-page-wrapper-custom .footer h3 i {
+          color: #25a92b;
+          margin-right: 8px;
+        }
+
+        .contact-page-wrapper-custom .footer p {
+          color: #244440;
+          line-height: 1.8;
+          max-width: 350px;
+        }
+
+        .contact-page-wrapper-custom .footer-links {
+          list-style: none;
+          display: grid;
+          gap: 12px;
+        }
+
+        .contact-page-wrapper-custom .footer-links a {
+          text-decoration: none;
+          color: #143734;
+          font-weight: 600;
+          display: flex;
+          justify-content: space-between;
+          transition: 0.25s ease;
+        }
+
+        .contact-page-wrapper-custom .footer-links a:hover {
+          color: #159b28;
+          transform: translateX(5px);
+        }
+
+        .contact-page-wrapper-custom .newsletter {
+          display: flex;
+          max-width: 390px;
+          margin-top: 24px;
+          background: white;
+          border-radius: 999px;
+          padding: 8px;
+          box-shadow: 0 12px 30px rgba(43, 103, 39, 0.12);
+        }
+
+        .contact-page-wrapper-custom .newsletter input {
+          height: 48px;
+          box-shadow: none;
+          border: none;
+          padding: 0 18px;
+          border-radius: 999px;
+        }
+
+        .contact-page-wrapper-custom .newsletter button {
+          border: none;
+          min-width: 100px;
+          border-radius: 999px;
+          background: linear-gradient(135deg, #57ce31, #07931f);
+          color: white;
+          font-weight: 800;
+          cursor: pointer;
+        }
+
+        .contact-page-wrapper-custom .footer-bottom {
+          border-top: 1px solid rgba(36, 94, 40, 0.13);
+          padding-top: 22px;
+          display: flex;
+          justify-content: space-between;
+          gap: 20px;
+          flex-wrap: wrap;
+          font-size: 14px;
+          color: #173936;
+        }
+
+        .contact-page-wrapper-custom .footer-bottom a {
+          color: #173936;
+          text-decoration: none;
+          margin-left: 24px;
+        }
+
+        .contact-page-wrapper-custom .footer-bottom a:hover {
+          color: #159b28;
+        }
+
+        @media (max-width: 1050px) {
+          .contact-page-wrapper-custom .contact-section {
+            grid-template-columns: 1fr;
+            padding: 55px 6%;
+            gap: 45px;
+          }
+
+          .contact-page-wrapper-custom .form-card {
+            max-width: 760px;
+          }
+
+          .contact-page-wrapper-custom .footer-grid {
+            grid-template-columns: 1fr 1fr;
+          }
+        }
+
+        @media (max-width: 700px) {
+          .contact-page-wrapper-custom .page {
+            padding: 100px 4% 40px;
+          }
+
+          .contact-page-wrapper-custom .contact-section {
+            border-radius: 28px;
+            padding: 42px 22px;
+          }
+
+          .contact-page-wrapper-custom .contact-section::before {
+            inset: 10px;
+            border-radius: 22px;
+          }
+
+          .contact-page-wrapper-custom h1 {
+            letter-spacing: -1.8px;
+          }
+
+          .contact-page-wrapper-custom .form-row {
+            grid-template-columns: 1fr;
+            gap: 0;
+          }
+
+          .contact-page-wrapper-custom .form-card {
+            padding: 28px 20px;
+            border-radius: 26px;
+          }
+
+          .contact-page-wrapper-custom .info-card {
+            border-radius: 24px;
+            align-items: flex-start;
+          }
+
+          .contact-page-wrapper-custom .footer-grid {
+            grid-template-columns: 1fr;
+            gap: 38px;
+          }
+
+          .contact-page-wrapper-custom .footer-bottom {
+            flex-direction: column;
+          }
+
+          .contact-page-wrapper-custom .footer-bottom a {
+            margin-left: 0;
+            margin-right: 18px;
+          }
+        }
+      `}</style>
+      <main className="page">
+        <section className="contact-section">
+          <div className="music-lines"></div>
+
+          <span className="leaf one"></span>
+          <span className="leaf two"></span>
+          <span className="leaf three"></span>
+          <span className="leaf four"></span>
+
+          <div className="left-content">
+            <div className="badge">
+              <i className="fa-solid fa-leaf"></i>
+              Get In Touch
+            </div>
+
+            <h1>
+              Ready to transform <br />
+              your <span>sound?</span>
+            </h1>
+
+            <p className="intro">
+              Get in touch with us for custom requests, support, or collaboration
+              opportunities.
+            </p>
+
+            <div className="info-cards">
+              <div className="info-card">
+                <div className="info-icon">
+                  <i className="fa-regular fa-envelope"></i>
+                </div>
+                <div>
+                  <small>Email us at</small>
+                  <strong>hello@instrumuzicover.com</strong>
+                </div>
+              </div>
+
+              <div className="info-card">
+                <div className="info-icon">
+                  <i className="fa-solid fa-paper-plane"></i>
+                </div>
+                <div>
+                  <small>Response time</small>
+                  <strong>Within 24 hours</strong>
+                </div>
+              </div>
+
+              <div className="info-card">
+                <div className="info-icon">
+                  <i className="fa-solid fa-earth-americas"></i>
+                </div>
+                <div>
+                  <small>Follow our journey</small>
+                  <div className="socials">
+                    <a href="https://instagram.com" target="_blank" rel="noopener noreferrer"><i className="fa-brands fa-instagram"></i></a>
+                    <a href="https://twitter.com" target="_blank" rel="noopener noreferrer"><i className="fa-brands fa-twitter"></i></a>
+                    <a href="https://www.youtube.com/@dylanchrey" target="_blank" rel="noopener noreferrer"><i className="fa-brands fa-youtube"></i></a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <form className="form-card" onSubmit={handleSubmit}>
+            {isSent && (
+              <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-center text-sm font-bold flex items-center justify-center gap-2 animate-bounce">
+                <span>🍃</span> Message sent successfully! We will get back to you soon.
+              </div>
+            )}
+            <div className="form-row">
+              <div className="field">
+                <label>
+                  <i className="fa-regular fa-user"></i>
+                  First Name
+                </label>
+                <div className="input-wrap">
+                  <i className="fa-regular fa-user"></i>
+                  <input 
+                    type="text" 
+                    placeholder="John" 
+                    required 
+                    value={formData.firstName}
+                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="field">
+                <label>
+                  <i className="fa-regular fa-user"></i>
+                  Last Name
+                </label>
+                <div className="input-wrap">
+                  <i className="fa-regular fa-user"></i>
+                  <input 
+                    type="text" 
+                    placeholder="Doe" 
+                    value={formData.lastName}
+                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="field">
+              <label>
+                <i className="fa-regular fa-envelope"></i>
+                Email Address
+              </label>
+              <div className="input-wrap">
+                <i className="fa-regular fa-envelope"></i>
+                <input 
+                  type="email" 
+                  placeholder="john@example.com" 
+                  required 
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="field">
+              <label>
+                <i className="fa-regular fa-message"></i>
+                Message
+              </label>
+              <textarea 
+                placeholder="How can we help?" 
+                required 
+                value={formData.message}
+                onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+              ></textarea>
+            </div>
+
+            <button type="submit" className="send-btn" disabled={isSending}>
+              {isSending ? (
+                <span>Sending...</span>
+              ) : (
+                <>
+                  <i className="fa-solid fa-paper-plane"></i>
+                  Send Message
+                </>
+              )}
+            </button>
+          </form>
+        </section>
+
+        <footer className="footer animate-fade-in">
+          <div className="footer-grid">
+            <div>
+              <h3>Instrumuzicover</h3>
+              <p>
+                The ultimate destination for virtual instruments and music sheets.
+                Elevate your production with professional tools.
+              </p>
+
+              <div className="socials" style={{ marginTop: '24px' }}>
+                <a href="https://instagram.com" target="_blank" rel="noopener noreferrer"><i className="fa-brands fa-instagram"></i></a>
+                <a href="https://twitter.com" target="_blank" rel="noopener noreferrer"><i className="fa-brands fa-twitter"></i></a>
+                <a href="https://www.youtube.com/@dylanchrey" target="_blank" rel="noopener noreferrer"><i className="fa-brands fa-youtube"></i></a>
+              </div>
+            </div>
+
+            <div>
+              <h3><i className="fa-solid fa-leaf"></i>Quick Links</h3>
+              <ul className="footer-links">
+                <li><Link to="/">Home <span>›</span></Link></li>
+                <li><Link to="/performance">Performance <span>›</span></Link></li>
+                <li><Link to="/playlist">Playlist <span>›</span></Link></li>
+                <li><Link to="/products">Product <span>›</span></Link></li>
+                <li><Link to="/contact">Contact <span>›</span></Link></li>
+                <li><Link to="/about">About <span>›</span></Link></li>
+                {isAdmin && <li><Link to="/media">Media <span>›</span></Link></li>}
+              </ul>
+            </div>
+
+            <div>
+              <h3><i className="fa-solid fa-leaf"></i>Newsletter</h3>
+              {newsletterSubscribed ? (
+                <p className="text-emerald-700 font-bold text-sm bg-emerald-50 p-3 rounded-2xl border border-emerald-200">
+                  🌱 Thank you! You've successfully subscribed to our newsletter.
+                </p>
+              ) : (
+                <>
+                  <p>
+                    Subscribe to get updates on new releases and offers.
+                  </p>
+                  <form className="newsletter" onSubmit={handleNewsletterSubmit}>
+                    <input 
+                      type="email" 
+                      placeholder="Enter your email" 
+                      required 
+                      value={newsletterEmail}
+                      onChange={(e) => setNewsletterEmail(e.target.value)}
+                    />
+                    <button type="submit">Join</button>
+                  </form>
+                </>
+              )}
+            </div>
+          </div>
+
+          <div className="footer-bottom">
+            <p>© 2026 Instrumuzicover. All rights reserved.</p>
+            <div>
+              <a href="#">Privacy Policy</a>
+              <a href="#">Terms of Service</a>
+            </div>
+          </div>
+        </footer>
+      </main>
     </div>
   );
 };
@@ -1139,43 +2806,71 @@ const NewPerformanceSection = ({ backgroundColor }: { backgroundColor?: string }
       style={{ backgroundColor: backgroundColor || 'transparent' }}
     >
       <div className="max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Top Separator Line (between Hero and New Performance Section) */}
+        <div className="leaf-separator">
+          <span>🍃</span>
+        </div>
+
         <div className="flex justify-center mb-12">
           <div className="text-center">
-            <h2 className="text-3xl font-bold text-zinc-900 dark:text-white mb-4">New Performance</h2>
-            <p className="text-zinc-600 dark:text-zinc-400 max-w-2xl">Check out the latest performance uploaded by our community.</p>
+            <h2 className="text-3xl font-bold mb-4" style={{ fontFamily: 'Courier New, Courier, monospace', fontWeight: 'bold', fontSize: '35px', color: '#7ab18a' }}>New Performance</h2>
+            <p className="max-w-2xl" style={{ fontFamily: 'Courier New, Courier, monospace', fontWeight: 'normal', color: '#b5d98d' }}>Check out the latest performance uploaded by our community.</p>
           </div>
         </div>
 
-        <div className="flex flex-col items-center max-w-4xl mx-auto">
+        <div className="flex flex-col items-center max-w-4xl mx-auto w-full">
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="relative w-full aspect-video rounded-2xl overflow-hidden group cursor-pointer shadow-2xl mb-8"
-            onClick={() => setSelectedVideoIndex(0)}
+            className="relative w-full mb-8 px-4 sm:px-6 md:px-8"
           >
-            <img src={latestPerformance.image} alt={latestPerformance.title} className="w-full h-full object-cover transition-transform duration-500" referrerPolicy="no-referrer" />
-            
-            <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-              <div className="w-20 h-20 bg-emerald-600 rounded-full flex items-center justify-center text-white shadow-lg">
-                <Play className="w-10 h-10 ml-2" />
+            <div 
+              className="relative w-full aspect-video rounded-lg sm:rounded-xl md:rounded-2xl overflow-hidden group cursor-pointer shadow-2xl"
+              onClick={() => setSelectedVideoIndex(0)}
+            >
+              {/* Video Thumbnail */}
+              <img 
+                src={latestPerformance.image} 
+                alt={latestPerformance.title} 
+                className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" 
+                referrerPolicy="no-referrer" 
+              />
+              
+              {/* Play Button Overlay */}
+              <div className="absolute inset-0 z-20 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                <div className="w-20 h-20 bg-emerald-600 rounded-full flex items-center justify-center text-white shadow-lg">
+                  <Play className="w-10 h-10 ml-1.5" />
+                </div>
+              </div>
+              
+              {/* Views - Bottom Left */}
+              <div className="absolute bottom-4 left-4 z-20 flex items-center gap-1 text-sm font-bold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] bg-black/40 px-3 py-1 rounded-full">
+                <Eye className="w-4 h-4" />
+                {latestPerformance.views} views
+              </div>
+   
+              {/* Date - Bottom Right */}
+              <div className="absolute bottom-4 right-4 z-20 flex items-center gap-1 text-sm font-bold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] bg-black/40 px-3 py-1 rounded-full">
+                <Calendar className="w-4 h-4" />
+                {(() => {
+                  const d = new Date(latestPerformance.dateUploaded);
+                  return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
+                })()}
               </div>
             </div>
-            
-            {/* Views - Bottom Left */}
-            <div className="absolute bottom-4 left-4 flex items-center gap-1 text-sm font-bold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">
-              <Eye className="w-4 h-4" />
-              {latestPerformance.views} views
-            </div>
- 
-            {/* Date - Bottom Right */}
-            <div className="absolute bottom-4 right-4 flex items-center gap-1 text-sm font-bold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">
-              <Calendar className="w-4 h-4" />
-              {(() => {
-                const d = new Date(latestPerformance.dateUploaded);
-                return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
-              })()}
-            </div>
+
+            {/* Frame Container Overlay in front of the video and extending slightly beyond it */}
+            <div 
+              className="absolute -top-4 sm:-top-8 md:-top-12 -bottom-4 sm:-bottom-8 md:-bottom-12 -left-1 sm:-left-3 md:-left-6 -right-1 sm:-right-3 md:-right-6 z-30 pointer-events-none"
+              style={{ 
+                backgroundImage: "url('https://res.cloudinary.com/dj52ig0l7/image/upload/v1780633685/hybpiqlnxum5t90jgisn.png')",
+                backgroundSize: '100% 100%',
+                backgroundPosition: 'center',
+                backgroundRepeat: 'no-repeat',
+                backgroundColor: 'transparent'
+              }}
+            />
           </motion.div>
  
           <motion.div 
@@ -1184,15 +2879,15 @@ const NewPerformanceSection = ({ backgroundColor }: { backgroundColor?: string }
             viewport={{ once: true }}
             className="flex flex-col items-center text-center"
           >
-            <h3 className="text-3xl font-bold text-zinc-900 dark:text-white mb-2">{latestPerformance.title}</h3>
-            <p className="text-xl text-zinc-600 dark:text-zinc-400 mb-2">by {latestPerformance.artist}</p>
+            <h3 className="text-3xl font-bold mb-2" style={{ color: '#7ab18a', fontFamily: 'Courier New, Courier, monospace' }}>{latestPerformance.title}</h3>
+            <p className="text-xl mb-2" style={{ color: '#b5d98d', fontFamily: 'Courier New, Courier, monospace' }}>by {latestPerformance.artist}</p>
             
             <div className="flex flex-wrap justify-center gap-3 mb-8">
-              <div className="flex items-center gap-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                <span className="text-emerald-500">{getInstrumentIcon(latestPerformance.instrument, "w-5 h-5 text-emerald-500")}</span>
+              <div className="flex items-center gap-2 text-sm font-medium" style={{ color: '#00bc7d' }}>
+                <span className="text-[#00bc7d]">{getInstrumentIcon(latestPerformance.instrument, "w-5 h-5 text-[#00bc7d]")}</span>
                 {formatInstrumentName(latestPerformance.instrument)}
               </div>
-              <div className={`flex items-center gap-2 text-sm font-bold ${getDifficultyColor(latestPerformance.difficulty)}`}>
+              <div className={`flex items-center gap-2 text-sm font-bold ${getDifficultyColor(latestPerformance.difficulty)}`} style={{ fontFamily: 'Courier New, Courier, monospace' }}>
                 <DifficultyGauge difficulty={latestPerformance.difficulty} className="w-5 h-5" />
                 {latestPerformance.difficulty}
               </div>
@@ -1228,12 +2923,17 @@ const NewPerformanceSection = ({ backgroundColor }: { backgroundColor?: string }
           View All Performances <ArrowRight className="w-4 h-4" />
         </Link>
 
+        {/* Separator Line */}
+        <div className="leaf-separator">
+          <span>🍃</span>
+        </div>
+
         {/* New Sections: Latest and Popular */}
-        <div className="mt-20 flex flex-col gap-12">
+        <div className="flex flex-col gap-12">
           {/* Latest Performances */}
           <div className="flex flex-col items-center">
             <div className="mb-8 text-center">
-              <h3 className="text-2xl font-bold text-zinc-900 dark:text-white">Latest Performances</h3>
+              <h3 className="text-2xl font-bold" style={{ fontFamily: 'Courier New, Courier, monospace', fontWeight: 'bold', fontSize: '35px', color: '#7ab18a' }}>Latest Performances</h3>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full">
               {performances.slice(1, 4).map((perf, idx) => (
@@ -1247,24 +2947,37 @@ const NewPerformanceSection = ({ backgroundColor }: { backgroundColor?: string }
                   onClick={() => setSelectedVideoIndex(performances.indexOf(perf))}
                   className="group cursor-pointer"
                 >
-                  <div className="aspect-video rounded-xl overflow-hidden relative mb-1 shadow-md">
-                    <img src={perf.image} alt={perf.title} className="w-full h-full object-cover group-hover:scale-105" referrerPolicy="no-referrer" />
-                    <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors flex items-center justify-center">
-                      <div className="w-10 h-10 bg-emerald-600 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Play className="w-5 h-5 ml-0.5" />
+                  <div className="relative w-full mb-3 px-3 sm:px-4 md:px-5">
+                    <div className="aspect-video rounded-xl overflow-hidden relative shadow-md">
+                      <img src={perf.image} alt={perf.title} className="w-full h-full object-cover group-hover:scale-105" referrerPolicy="no-referrer" />
+                      <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors flex items-center justify-center">
+                        <div className="w-10 h-10 bg-emerald-600 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Play className="w-5 h-5 ml-0.5" />
+                        </div>
                       </div>
                     </div>
+                    {/* Frame Container Overlay */}
+                    <div 
+                      className="absolute -top-3 sm:-top-5 md:-top-7 -bottom-3 sm:-bottom-5 md:-bottom-7 -left-1 sm:-left-1.5 md:-left-2 -right-1 sm:-right-1.5 md:-right-2 z-30 pointer-events-none"
+                      style={{ 
+                        backgroundImage: "url('https://res.cloudinary.com/dj52ig0l7/image/upload/v1780633685/hybpiqlnxum5t90jgisn.png')",
+                        backgroundSize: '100% 100%',
+                        backgroundPosition: 'center',
+                        backgroundRepeat: 'no-repeat',
+                        backgroundColor: 'transparent'
+                      }}
+                    />
                   </div>
                   <div className="text-center pt-1">
-                    <h4 className="text-xl font-bold text-zinc-900 dark:text-white mb-1 line-clamp-1">{perf.title}</h4>
-                    <div className="flex items-center justify-center gap-2 text-zinc-600 dark:text-zinc-400 text-base mb-2">
-                      <User className="w-5 h-5" />
-                      <span>{perf.artist}</span>
+                    <h4 className="text-xl font-bold mb-1 line-clamp-1" style={{ fontFamily: 'Courier New, Courier, monospace', fontWeight: 'bold', color: '#7ab18a' }}>{perf.title}</h4>
+                    <div className="flex items-center justify-center gap-2 text-base mb-2">
+                      <User className="w-5 h-5" style={{ color: '#b5d98d' }} />
+                      <span style={{ fontFamily: 'Courier New, Courier, monospace', fontWeight: 'bold', color: '#b5d98d' }}>{perf.artist}</span>
                     </div>
                     <div className="flex justify-center gap-2">
-                      <div className="flex items-center gap-1.5 text-sm font-medium text-emerald-500">
-                        {getInstrumentIcon(perf.instrument)}
-                        {formatInstrumentName(perf.instrument)}
+                      <div className="flex items-center gap-1.5 text-sm font-medium">
+                        {getInstrumentIcon(perf.instrument, "w-4 h-4 text-[#7ab18a]")}
+                        <span style={{ color: '#7ab18a', fontWeight: 'bold', fontFamily: 'Courier New, Courier, monospace' }}>{formatInstrumentName(perf.instrument)}</span>
                       </div>
                       <div className={`flex items-center gap-1.5 text-sm font-bold ${getDifficultyColor(perf.difficulty)}`}>
                         <DifficultyGauge difficulty={perf.difficulty} className="w-4 h-4" />
@@ -1280,7 +2993,7 @@ const NewPerformanceSection = ({ backgroundColor }: { backgroundColor?: string }
           {/* Popular Performances */}
           <div className="flex flex-col items-center">
             <div className="mb-8 text-center">
-              <h3 className="text-2xl font-bold text-zinc-900 dark:text-white">Popular</h3>
+              <h3 className="text-2xl font-bold" style={{ fontFamily: 'Courier New, Courier, monospace', fontWeight: 'bold', fontSize: '35px', color: '#7ab18a' }}>Popular</h3>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full">
               {[...performances].sort((a, b) => (b.views || 0) - (a.views || 0)).slice(0, 3).map((perf, idx) => (
@@ -1294,28 +3007,41 @@ const NewPerformanceSection = ({ backgroundColor }: { backgroundColor?: string }
                   onClick={() => setSelectedVideoIndex(performances.indexOf(perf))}
                   className="group cursor-pointer"
                 >
-                  <div className="aspect-video rounded-xl overflow-hidden relative mb-1 shadow-md">
-                    <img src={perf.image} alt={perf.title} className="w-full h-full object-cover group-hover:scale-105" referrerPolicy="no-referrer" />
-                    <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors flex items-center justify-center">
-                      <div className="w-10 h-10 bg-emerald-600 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Play className="w-5 h-5 ml-0.5" />
+                  <div className="relative w-full mb-3 px-3 sm:px-4 md:px-5">
+                    <div className="aspect-video rounded-xl overflow-hidden relative shadow-md">
+                      <img src={perf.image} alt={perf.title} className="w-full h-full object-cover group-hover:scale-105" referrerPolicy="no-referrer" />
+                      <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors flex items-center justify-center">
+                        <div className="w-10 h-10 bg-emerald-600 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Play className="w-5 h-5 ml-0.5" />
+                        </div>
+                      </div>
+                      <div className="absolute bottom-2 left-2 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded text-[10px] font-bold text-white flex items-center gap-1">
+                        <Eye className="w-3 h-3" />
+                        {perf.views || 0}
                       </div>
                     </div>
-                    <div className="absolute bottom-2 left-2 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded text-[10px] font-bold text-white flex items-center gap-1">
-                      <Eye className="w-3 h-3" />
-                      {perf.views || 0}
-                    </div>
+                    {/* Frame Container Overlay */}
+                    <div 
+                      className="absolute -top-3 sm:-top-5 md:-top-7 -bottom-3 sm:-bottom-5 md:-bottom-7 -left-1 sm:-left-1.5 md:-left-2 -right-1 sm:-right-1.5 md:-right-2 z-30 pointer-events-none"
+                      style={{ 
+                        backgroundImage: "url('https://res.cloudinary.com/dj52ig0l7/image/upload/v1780633685/hybpiqlnxum5t90jgisn.png')",
+                        backgroundSize: '100% 100%',
+                        backgroundPosition: 'center',
+                        backgroundRepeat: 'no-repeat',
+                        backgroundColor: 'transparent'
+                      }}
+                    />
                   </div>
                   <div className="text-center pt-1">
-                    <h4 className="text-xl font-bold text-zinc-900 dark:text-white mb-1 line-clamp-1">{perf.title}</h4>
-                    <div className="flex items-center justify-center gap-2 text-zinc-600 dark:text-zinc-400 text-base mb-2">
-                      <User className="w-5 h-5" />
-                      <span>{perf.artist}</span>
+                    <h4 className="text-xl font-bold mb-1 line-clamp-1" style={{ fontFamily: 'Courier New, Courier, monospace', fontWeight: 'bold', color: '#7ab18a' }}>{perf.title}</h4>
+                    <div className="flex items-center justify-center gap-2 text-base mb-2">
+                      <User className="w-5 h-5" style={{ color: '#b5d98d' }} />
+                      <span style={{ fontFamily: 'Courier New, Courier, monospace', fontWeight: 'bold', color: '#b5d98d' }}>{perf.artist}</span>
                     </div>
                     <div className="flex justify-center gap-2">
-                      <div className="flex items-center gap-1.5 text-sm font-medium text-emerald-500">
-                        {getInstrumentIcon(perf.instrument)}
-                        {formatInstrumentName(perf.instrument)}
+                      <div className="flex items-center gap-1.5 text-sm font-medium">
+                        {getInstrumentIcon(perf.instrument, "w-4 h-4 text-[#7ab18a]")}
+                        <span style={{ color: '#7ab18a', fontWeight: 'bold', fontFamily: 'Courier New, Courier, monospace' }}>{formatInstrumentName(perf.instrument)}</span>
                       </div>
                       <div className={`flex items-center gap-1.5 text-sm font-bold ${getDifficultyColor(perf.difficulty)}`}>
                         <DifficultyGauge difficulty={perf.difficulty} className="w-4 h-4" />
@@ -1918,45 +3644,7 @@ const DynamicEditablePage = ({
           cloudinaryConfig={cloudinaryConfig}
         />
 
-        <AnimatePresence>
-          {showExitConfirmation && (
-            <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 max-w-sm w-full shadow-2xl"
-              >
-                <div className="flex items-center gap-3 mb-4 text-emerald-400">
-                  <AlertTriangle className="w-6 h-6" />
-                  <h3 className="text-xl font-bold text-white">Exit Edit Mode?</h3>
-                </div>
-                <p className="text-zinc-400 mb-6 leading-relaxed">
-                  Your changes are automatically saved to the database. Are you sure you want to finish editing?
-                </p>
-                <div className="flex flex-col gap-3">
-                  <button 
-                    onClick={() => {
-                      setIsEditMode(false);
-                      setShowExitConfirmation(false);
-                      setSelectedSectionId(null);
-                      setSelectedItemId(null);
-                    }}
-                    className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl transition-colors"
-                  >
-                    Yes, Finish Editing
-                  </button>
-                  <button 
-                    onClick={() => setShowExitConfirmation(false)}
-                    className="w-full py-3 bg-zinc-800 hover:bg-zinc-700 text-white font-bold rounded-xl transition-colors"
-                  >
-                    Keep Editing
-                  </button>
-                </div>
-              </motion.div>
-            </div>
-          )}
-        </AnimatePresence>
+        {/* Global Exit Confirmation modal has been moved to App root to support all pages */}
       </div>
 
       {sections.map((section, index) => (
@@ -1984,10 +3672,10 @@ const DynamicEditablePage = ({
             onMoveToPage={(page) => handleMoveToPage(section, page)}
             onColorChange={(color) => handleColorChange(section.id, color)}
           >
-            {section.type === 'hero' && <Hero backgroundColor={section.backgroundColor} />}
-            {section.type === 'new-perf' && <NewPerformanceSection backgroundColor={section.backgroundColor} />}
+            {section.type === 'hero' && <Hero backgroundColor={location.pathname === '/' ? 'transparent' : section.backgroundColor} />}
+            {section.type === 'new-perf' && <NewPerformanceSection backgroundColor={location.pathname === '/' ? 'transparent' : section.backgroundColor} />}
             {section.type === 'text' && (
-              <section className="py-20 px-4" style={{ backgroundColor: section.backgroundColor }}>
+              <section className="py-20 px-4" style={{ backgroundColor: location.pathname === '/' ? 'transparent' : (section.backgroundColor || 'transparent') }}>
                 <div className="max-w-4xl mx-auto text-center">
                   <h2 className="text-4xl font-bold mb-6" style={{ color: section.textColor }}>{section.title}</h2>
                   <p className="text-lg leading-relaxed" style={{ color: section.textColor }}>{section.content}</p>
@@ -2020,7 +3708,7 @@ const DynamicEditablePage = ({
               </section>
             )}
             {section.type === 'dynamic' && (
-              <section className="py-20 px-4" style={{ backgroundColor: section.backgroundColor || 'transparent' }}>
+              <section className="py-20 px-4" style={{ backgroundColor: location.pathname === '/' ? 'transparent' : (section.backgroundColor || 'transparent') }}>
                 <div className="max-w-7xl mx-auto flex flex-col gap-12">
                   {(section.title || section.description) && (
                     <div className="text-center mb-8 space-y-4">
@@ -2829,13 +4517,544 @@ const PlaylistPage = () => {
 };
 
 const AboutPage = () => {
+  const { isAdmin } = useContext(AuthContext);
   return (
-    <div className="pt-20">
-      <DynamicEditablePage 
-        collectionName="about_sections"
-        fixedSections={[{ id: 'about-content', type: 'about-content', order: 0 }]}
-        renderExtraSection={(section) => section.type === 'about-content' && <About />}
-      />
+    <div className="about-page-wrapper-custom min-h-screen">
+      <style>{`
+        .about-page-wrapper-custom {
+          font-family: "Poppins", sans-serif !important;
+          color: #263238;
+          background:
+            radial-gradient(circle at top left, rgba(126, 203, 68, 0.25), transparent 30%),
+            radial-gradient(circle at top right, rgba(144, 210, 88, 0.22), transparent 28%),
+            linear-gradient(180deg, #fbfff4 0%, #f5ffe9 55%, #eefbdc 100%) !important;
+          min-height: 100vh;
+          overflow-x: hidden;
+          position: relative;
+        }
+
+        .about-page-wrapper-custom::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+          background:
+            radial-gradient(circle at 15% 18%, rgba(131, 207, 75, 0.18), transparent 16%),
+            radial-gradient(circle at 84% 40%, rgba(83, 178, 55, 0.16), transparent 18%),
+            radial-gradient(circle at 50% 82%, rgba(141, 214, 97, 0.14), transparent 25%);
+          z-index: 1;
+        }
+
+        .about-page-wrapper-custom * {
+          box-sizing: border-box;
+        }
+
+        .page-custom {
+          width: min(1180px, calc(100% - 40px));
+          margin: 0 auto;
+          padding: 120px 0 30px;
+          position: relative;
+          z-index: 2;
+        }
+
+        .about-card {
+          position: relative;
+          display: grid;
+          grid-template-columns: 1.05fr 1fr;
+          gap: 70px;
+          align-items: center;
+          padding: 64px 70px;
+          min-height: 510px;
+          border-radius: 58px;
+          background:
+            linear-gradient(135deg, rgba(255,255,255,0.84), rgba(247,255,237,0.66)),
+            radial-gradient(circle at bottom right, rgba(115, 204, 65, 0.23), transparent 35%);
+          box-shadow:
+            0 30px 70px rgba(94, 161, 51, 0.2),
+            inset 0 0 0 2px rgba(143, 201, 103, 0.25);
+          overflow: hidden;
+        }
+
+        .about-card::before,
+        .about-card::after {
+          content: "";
+          position: absolute;
+          border-radius: 50%;
+          pointer-events: none;
+        }
+
+        .about-card::before {
+          width: 720px;
+          height: 260px;
+          border: 8px solid rgba(143, 207, 98, 0.22);
+          left: -170px;
+          top: 95px;
+          transform: rotate(-8deg);
+        }
+
+        .about-card::after {
+          width: 780px;
+          height: 240px;
+          border: 5px solid rgba(120, 194, 74, 0.18);
+          right: -210px;
+          bottom: -20px;
+          transform: rotate(-9deg);
+        }
+
+        .leaf {
+          position: absolute;
+          color: #67b843;
+          font-size: 30px;
+          filter: drop-shadow(0 8px 12px rgba(69, 146, 34, 0.25));
+          opacity: 0.85;
+          z-index: 2;
+        }
+
+        .leaf.one { top: 75px; left: 42%; transform: rotate(-18deg); }
+        .leaf.two { bottom: 58px; left: 12%; transform: rotate(15deg); font-size: 38px; }
+        .leaf.three { right: 42px; top: 145px; transform: rotate(-20deg); font-size: 44px; }
+        .leaf.four { right: 250px; bottom: 70px; transform: rotate(28deg); }
+
+        .image-collage-centered {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 410px;
+          z-index: 3;
+          position: relative;
+        }
+
+        .center-logo-only {
+          width: 280px;
+          height: 280px;
+          border-radius: 50%;
+          object-fit: cover;
+          background: #dff4ca;
+          padding: 8px;
+          box-shadow:
+            0 20px 45px rgba(67, 144, 35, 0.25),
+            0 0 0 12px rgba(184, 230, 143, 0.35);
+          z-index: 4;
+          transition: transform 0.5s ease;
+        }
+
+        .center-logo-only:hover {
+          transform: scale(1.05);
+        }
+
+        .about-content {
+          position: relative;
+          z-index: 4;
+          max-width: 520px;
+        }
+
+        .eyebrow {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          color: #3f8e32;
+          font-weight: 600;
+          font-size: 15px;
+          margin-bottom: 18px;
+        }
+
+        .eyebrow span {
+          font-size: 20px;
+        }
+
+        .about-content h2 {
+          font-size: clamp(34px, 4vw, 46px);
+          line-height: 1.12;
+          margin-bottom: 24px;
+          color: #2d3038;
+          letter-spacing: -1px;
+        }
+
+        .about-content h2 strong {
+          color: #65b93d;
+          font-weight: 700;
+        }
+
+        .about-content p {
+          font-size: 15px;
+          line-height: 1.9;
+          color: #3d454d;
+          margin-bottom: 22px;
+        }
+
+        .subscribe-btn {
+          margin-top: 18px;
+          display: inline-flex;
+          align-items: center;
+          gap: 14px;
+          padding: 13px 28px 13px 13px;
+          border-radius: 40px;
+          text-decoration: none;
+          color: #fff !important;
+          font-size: 15px;
+          font-weight: 700;
+          background: linear-gradient(135deg, #9fdf67, #4ab931);
+          box-shadow:
+            0 14px 26px rgba(65, 174, 44, 0.28),
+            inset 0 0 0 6px rgba(255, 255, 255, 0.28);
+          transition: transform 0.25s ease, box-shadow 0.25s ease;
+        }
+
+        .subscribe-btn:hover {
+          transform: translateY(-3px);
+          box-shadow:
+            0 18px 36px rgba(65, 174, 44, 0.35),
+            inset 0 0 0 6px rgba(255, 255, 255, 0.28);
+        }
+
+        .play-icon {
+          width: 38px;
+          height: 38px;
+          border-radius: 50%;
+          display: grid;
+          place-items: center;
+          background: rgba(255, 255, 255, 0.72);
+          color: #55b938;
+          font-size: 15px;
+          flex: 0 0 auto;
+        }
+
+        .slider-dots {
+          display: flex;
+          justify-content: center;
+          gap: 12px;
+          margin: 27px 0 5px;
+        }
+
+        .slider-dots span {
+          width: 7px;
+          height: 7px;
+          border-radius: 50%;
+          background: #9ccd78;
+        }
+
+        .slider-dots span.active {
+          width: 25px;
+          border-radius: 20px;
+          background: linear-gradient(90deg, #81ca55, #43ae32);
+        }
+
+        .footer-custom {
+          position: relative;
+          margin-top: 45px;
+          padding: 52px 0 25px;
+          background: linear-gradient(180deg, rgba(255,255,255,0.22), rgba(243,255,227,0.55));
+          border-top: 1px solid rgba(131, 187, 91, 0.2);
+        }
+
+        .footer-grid {
+          display: grid;
+          grid-template-columns: 1.2fr 0.8fr 1.2fr 1fr;
+          gap: 40px;
+          align-items: start;
+        }
+
+        .footer-brand {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          margin-bottom: 18px;
+        }
+
+        .footer-brand img {
+          width: 50px;
+          height: 50px;
+          border-radius: 50%;
+          object-fit: cover;
+        }
+
+        .footer-brand h3,
+        .footer-title {
+          color: #2d7c28;
+          font-size: 17px;
+          font-weight: 700;
+          margin: 0;
+        }
+
+        .footer-text {
+          font-size: 14px;
+          color: #455346;
+          line-height: 1.8;
+          max-width: 260px;
+        }
+
+        .socials-custom {
+          display: flex;
+          gap: 12px;
+          margin-top: 22px;
+        }
+
+        .socials-custom a {
+          width: 38px;
+          height: 38px;
+          display: grid;
+          place-items: center;
+          border-radius: 50%;
+          background: rgba(255, 255, 255, 0.8);
+          color: #3d9531;
+          text-decoration: none;
+          box-shadow: 0 8px 18px rgba(64, 130, 38, 0.13);
+          font-weight: 700;
+        }
+
+        .footer-links-custom {
+          list-style: none;
+          margin-top: 18px;
+          padding: 0;
+        }
+
+        .footer-links-custom li {
+          margin-bottom: 10px;
+        }
+
+        .footer-links-custom a {
+          text-decoration: none;
+          color: #35503c !important;
+          font-size: 14px;
+          transition: color 0.2s ease;
+        }
+
+        .footer-links-custom a:hover {
+          color: #4db636 !important;
+        }
+
+        .newsletter-custom p {
+          margin-top: 20px;
+          color: #4a7543;
+          line-height: 1.8;
+          font-size: 14px;
+        }
+
+        .email-box-custom {
+          margin-top: 28px;
+          display: flex;
+          max-width: 330px;
+          padding: 6px;
+          border-radius: 40px;
+          background: rgba(255,255,255,0.88);
+          box-shadow: 0 12px 28px rgba(79, 143, 45, 0.13);
+        }
+
+        .email-box-custom input {
+          border: none;
+          outline: none;
+          background: transparent;
+          flex: 1;
+          padding: 0 18px;
+          font-family: inherit;
+          color: #333;
+        }
+
+        .email-box-custom button {
+          border: none;
+          padding: 12px 24px;
+          border-radius: 30px;
+          color: #fff;
+          background: linear-gradient(135deg, #92d85d, #41b330);
+          font-weight: 700;
+          cursor: pointer;
+        }
+
+        .footer-art {
+          display: flex;
+          justify-content: center;
+        }
+
+        .headphones-custom {
+          width: 210px;
+          max-width: 100%;
+          filter: drop-shadow(0 22px 30px rgba(70, 130, 35, 0.22));
+        }
+
+        .footer-bottom-custom {
+          margin-top: 36px;
+          padding-top: 22px;
+          border-top: 1px solid rgba(114, 163, 82, 0.25);
+          display: flex;
+          justify-content: space-between;
+          gap: 20px;
+          flex-wrap: wrap;
+          color: #4d8142;
+          font-size: 13px;
+        }
+
+        .footer-bottom-custom a {
+          color: #4d8142 !important;
+          text-decoration: none;
+          margin-left: 25px;
+        }
+
+        @media (max-width: 1050px) {
+          .about-card {
+            grid-template-columns: 1fr;
+            padding: 45px;
+            gap: 45px;
+          }
+
+          .image-collage-centered {
+            max-width: 580px;
+            width: 100%;
+            margin: 0 auto;
+          }
+
+          .about-content {
+            max-width: 100%;
+          }
+
+          .footer-grid {
+            grid-template-columns: 1fr 1fr;
+          }
+        }
+
+        @media (max-width: 700px) {
+          .page-custom {
+            width: min(100% - 24px, 1180px);
+            padding-top: 25px;
+          }
+
+          .about-card {
+            border-radius: 34px;
+            padding: 28px 20px;
+          }
+
+          .image-collage-centered {
+            min-height: 300px;
+          }
+
+          .center-logo-only {
+            width: 200px;
+            height: 200px;
+          }
+
+          .about-content h2 {
+            font-size: 34px;
+          }
+
+          .footer-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .footer-bottom-custom {
+            flex-direction: column;
+          }
+
+          .footer-bottom-custom a {
+            margin-left: 0;
+            margin-right: 20px;
+          }
+        }
+      `}</style>
+
+      <main className="page-custom">
+        <section className="about-card">
+          <span className="leaf one">🍃</span>
+          <span className="leaf two">🌿</span>
+          <span className="leaf three">🌿</span>
+          <span className="leaf four">🍃</span>
+
+          <div className="image-collage-centered">
+            <img src={newLogoUrl} alt="Instrumuzicover emblem" className="center-logo-only" referrerPolicy="no-referrer" />
+          </div>
+
+          <div className="about-content">
+            <div className="eyebrow">
+              <span>🍃</span>
+              Our Story
+            </div>
+
+            <h2>About <strong>Instrumuzicover</strong></h2>
+
+            <p>
+              I specialize in reimagining iconic tracks and modern hits through the
+              power of virtual instruments. My goal is to explore the intersection of
+              technology and artistry, delivering high-quality digital performances
+              that breathe new life into your favorite music.
+            </p>
+
+            <p>
+              Your support is the engine behind this channel. Every subscriber
+              provides the motivation I need to push the boundaries of digital
+              production and increase my upload frequency. By joining this community,
+              you are directly fueling the creation of more immersive, virtual music
+              covers. Click the YouTube button and subscribe to the channel!
+            </p>
+
+            <a href="https://www.youtube.com/@dylanchrey" target="_blank" rel="noopener noreferrer" className="subscribe-btn">
+              <span className="play-icon">▶</span>
+              YouTube Subscribe
+            </a>
+          </div>
+        </section>
+
+        <div className="slider-dots">
+          <span></span>
+          <span className="active"></span>
+          <span></span>
+        </div>
+
+        <footer className="footer-custom">
+          <div className="footer-grid">
+            <div>
+              <div className="footer-brand">
+                <img src={newLogoUrl} alt="Instrumuzicover logo" referrerPolicy="no-referrer" />
+                <h3>Instrumuzicover</h3>
+              </div>
+
+              <p className="footer-text">
+                The ultimate destination for virtual instruments and music sheets.
+                Elevate your production with professional tools.
+              </p>
+
+              <div className="socials-custom">
+                <a href="#" aria-label="Instagram">◎</a>
+                <a href="#" aria-label="Twitter">𝕏</a>
+                <a href="https://www.youtube.com/@dylanchrey" target="_blank" rel="noopener noreferrer" aria-label="YouTube">▶</a>
+              </div>
+            </div>
+
+            <div>
+              <h4 className="footer-title">🍃 Quick Links</h4>
+              <ul className="footer-links-custom">
+                <li><Link to="/">Home ›</Link></li>
+                <li><Link to="/performance">Performance ›</Link></li>
+                <li><Link to="/playlist">Playlist ›</Link></li>
+                {isAdmin && <li><Link to="/media">Media ›</Link></li>}
+                <li><Link to="/products">Product ›</Link></li>
+                <li><Link to="/contact">Contact ›</Link></li>
+                <li><Link to="/about">About ›</Link></li>
+              </ul>
+            </div>
+
+            <div className="newsletter-custom">
+              <h4 className="footer-title">🍃 Newsletter</h4>
+              <p>Subscribe to get updates on new releases and offers.</p>
+
+              <form className="email-box-custom" onSubmit={(e) => e.preventDefault()}>
+                <input type="email" placeholder="Enter your email" required />
+                <button type="submit">Join</button>
+              </form>
+            </div>
+
+            <div className="footer-art">
+              <img src="https://images.unsplash.com/photo-1546435770-a3e426bf472b?auto=format&fit=crop&q=80&w=400" alt="Green headphones" className="headphones-custom" referrerPolicy="no-referrer" />
+            </div>
+          </div>
+
+          <div className="footer-bottom-custom">
+            <p>© 2026 Instrumuzicover. All rights reserved.</p>
+
+            <div>
+              <a href="#">Privacy Policy</a>
+              <a href="#">Terms of Service</a>
+            </div>
+          </div>
+        </footer>
+      </main>
     </div>
   );
 };
@@ -3050,7 +5269,7 @@ const PerformanceSection = ({ externalSearchQuery, onExternalSearchChange }: { e
       <div className="max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-row items-center justify-between gap-6 mb-12">
           <div className="md:flex-1 flex items-center justify-start">
-            <h2 className="text-3xl font-bold text-zinc-900 dark:text-white tracking-tight">Performances</h2>
+            <h2 className="text-3xl font-bold tracking-tight" style={{ fontFamily: 'Courier New, Courier, monospace', fontWeight: 'bold', fontSize: '35px', color: '#b5d98d' }}>Performances</h2>
           </div>
           
           <div className="w-[30%] relative">
@@ -3183,16 +5402,16 @@ const PerformanceSection = ({ externalSearchQuery, onExternalSearchChange }: { e
                   </div>
                 </div>
                 <div className="pt-1 pb-4 px-2 flex flex-col items-center text-center">
-                  <h3 className="text-lg font-bold text-zinc-900 dark:text-white mb-1 line-clamp-1">{perf.title}</h3>
-                  <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400 text-sm mb-2">
-                    <User className="w-4 h-4" />
-                    <span>{perf.artist}</span>
+                  <h3 className="text-lg font-bold mb-1 line-clamp-1" style={{ fontFamily: 'Courier New, Courier, monospace', fontWeight: 'bold', color: '#b5d98d' }}>{perf.title}</h3>
+                  <div className="flex items-center gap-2 text-sm mb-2">
+                    <User className="w-4 h-4 text-[#21a721]" />
+                    <span style={{ fontFamily: 'Courier New, Courier, monospace', fontWeight: 'bold', color: '#21a721' }}>{perf.artist}</span>
                   </div>
                   
                   <div className="flex justify-center gap-2">
-                    <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-500">
-                      {getInstrumentIcon(perf.instrument)}
-                      {formatInstrumentName(perf.instrument)}
+                    <div className="flex items-center gap-1.5 text-xs font-medium">
+                      {getInstrumentIcon(perf.instrument, "w-3.5 h-3.5 text-[#7ab18a]")}
+                      <span style={{ color: '#7ab18a', fontWeight: 'bold', fontFamily: 'Courier New, Courier, monospace' }}>{formatInstrumentName(perf.instrument)}</span>
                     </div>
                     <div className={`flex items-center gap-1.5 text-xs font-bold ${getDifficultyColor(perf.difficulty)}`}>
                       <DifficultyGauge difficulty={perf.difficulty} className="w-3.5 h-3.5" />
@@ -3760,8 +5979,8 @@ const InstrumentsSection = ({ onInstrumentClick }: { onInstrumentClick?: (instru
     <section className="pt-8 pb-8 bg-transparent transition-colors duration-300">
       <div className="max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-2">
-          <h2 className="text-3xl font-bold text-zinc-900 dark:text-white mb-1 tracking-tight">Instruments</h2>
-          <p className="text-zinc-600 dark:text-zinc-400">Finding the frequency your soul vibrates at.</p>
+          <h2 className="text-3xl font-bold mb-1 tracking-tight" style={{ fontFamily: 'Courier New, Courier, monospace', fontWeight: 'bold', fontSize: '35px', color: '#b5d98d' }}>Instruments</h2>
+          <p style={{ fontFamily: 'Courier New, Courier, monospace', fontWeight: 'bold', color: '#21a721' }}>Finding the frequency your soul vibrates at.</p>
         </div>
         
         <div 
@@ -3807,7 +6026,7 @@ const InstrumentsSection = ({ onInstrumentClick }: { onInstrumentClick?: (instru
               </div>
 
               <div className="p-6 text-center">
-                <h3 className="text-xl font-bold text-zinc-900 dark:text-white">{inst.name}</h3>
+                <h3 className="text-xl font-bold" style={{ fontFamily: 'Courier New, Courier, monospace', fontWeight: 'bold', color: '#b5d98d' }}>{inst.name}</h3>
               </div>
             </motion.div>
           );
@@ -3941,7 +6160,12 @@ const InstrumentsSection = ({ onInstrumentClick }: { onInstrumentClick?: (instru
 };
 
 const MediaDetailsModal = ({ onSave, onClose, uploadType, file }: { onSave: (details: any) => void, onClose: () => void, uploadType: 'image' | 'audio' | 'sheet' | null, file: File | null }) => {
-  const [title, setTitle] = useState('');
+  const [title, setTitle] = useState(() => {
+    if (file) {
+      return file.name.replace(/\.[^/.]+$/, "");
+    }
+    return '';
+  });
   const [artist, setArtist] = useState('');
   const [difficulty, setDifficulty] = useState('Beginner');
   const [instrument, setInstrument] = useState('Bass');
@@ -4241,7 +6465,7 @@ const MediaPage = () => {
     }
   };
 
-  const startUpload = async (file: File | null, details?: any) => {
+  const startUpload = async (file: File | null, details?: any, preventReset: boolean = false) => {
     if (!file && uploadType !== 'audio') {
       alert("No file selected.");
       return;
@@ -4369,12 +6593,14 @@ const MediaPage = () => {
       const errorMessage = error.message || 'Unknown error';
       alert(`Failed to upload. Error: ${errorMessage}\n\nTip: Make sure your Cloudinary Cloud Name and Unsigned Upload Preset are correct.`);
     } finally {
-      setIsUploading(false);
-      setUploadStatus(null);
-      setUploadProgress(null);
-      setPendingFile(null);
-      setUploadType(null);
-      setShowDetailsModal(false);
+      if (!preventReset) {
+        setIsUploading(false);
+        setUploadStatus(null);
+        setUploadProgress(null);
+        setPendingFile(null);
+        setUploadType(null);
+        setShowDetailsModal(false);
+      }
     }
   };
 
@@ -4382,23 +6608,39 @@ const MediaPage = () => {
     const files = event.target.files;
     if (!files || files.length === 0) return;
     
-    const file = files[0];
-    
-    if (uploadType === 'audio') {
-      const audio = new Audio(URL.createObjectURL(file));
-      audio.onloadedmetadata = () => {
-        if (audio.duration < 30) {
-          startUpload(file, { title: file.name });
-        } else {
-          setPendingFile(file);
-          setShowDetailsModal(true);
-        }
-      };
-    } else if (uploadType === 'image') {
-      startUpload(file);
+    setIsUploading(true);
+    setUploadStatus("Processing files...");
+
+    const fileArray = Array.from(files);
+
+    if (fileArray.length === 1) {
+      const file = fileArray[0];
+      if (uploadType === 'audio') {
+        const audio = new Audio(URL.createObjectURL(file));
+        audio.onloadedmetadata = () => {
+          if (audio.duration < 30) {
+            startUpload(file, { title: file.name.replace(/\.[^/.]+$/, "") });
+          } else {
+            setPendingFile(file);
+            setShowDetailsModal(true);
+            setIsUploading(false);
+          }
+        };
+      } else if (uploadType === 'image') {
+        startUpload(file, { title: file.name.replace(/\.[^/.]+$/, "") });
+      } else {
+        setPendingFile(file);
+        setShowDetailsModal(true);
+        setIsUploading(false);
+      }
     } else {
-      setPendingFile(file);
-      setShowDetailsModal(true);
+      // Multiple files - upload sequentially with basic details
+      for (let i = 0; i < fileArray.length; i++) {
+        const file = fileArray[i];
+        const isLast = i === fileArray.length - 1;
+        setUploadStatus(`Uploading file ${i + 1} of ${fileArray.length}...`);
+        await startUpload(file, { title: file.name.replace(/\.[^/.]+$/, "") }, !isLast);
+      }
     }
     
     if (event.target) {
@@ -4481,221 +6723,683 @@ const MediaPage = () => {
   };
 
   return (
-    <div className="pt-24 pb-16 min-h-screen bg-transparent transition-colors duration-300">
+    <div className="pt-24 pb-16 min-h-screen bg-[#0d0e10] transition-colors duration-300">
+      <style>{`
+        /* Main media nature container */
+        .media-nature-section {
+          position: relative;
+          max-width: 1700px;
+          margin: 40px auto 120px;
+          padding: 45px 38px 90px;
+          border-radius: 38px;
+          overflow: hidden;
+          background:
+            radial-gradient(circle at 8% 8%, rgba(143, 255, 105, 0.12), transparent 26%),
+            radial-gradient(circle at 92% 18%, rgba(153, 255, 77, 0.10), transparent 30%),
+            radial-gradient(circle at 45% 100%, rgba(72, 200, 63, 0.08), transparent 35%),
+            linear-gradient(135deg, rgba(24, 26, 27, 0.94), rgba(8, 10, 11, 0.98));
+          border: 1px solid rgba(142, 255, 109, 0.16);
+          box-shadow:
+            0 0 55px rgba(88, 255, 80, 0.08),
+            inset 0 0 0 1px rgba(255,255,255,0.03);
+        }
+
+        /* Soft inner glowing border */
+        .media-nature-section::before {
+          content: "";
+          position: absolute;
+          inset: 16px;
+          border-radius: 28px;
+          border: 1px solid rgba(174, 255, 145, 0.13);
+          pointer-events: none;
+          z-index: 1;
+        }
+
+        /* Background musical/nature lines */
+        .media-nature-section::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          background:
+            repeating-linear-gradient(
+              -12deg,
+              transparent 0,
+              transparent 54px,
+              rgba(130, 255, 96, 0.045) 56px,
+              transparent 59px
+            );
+          opacity: 0.55;
+          pointer-events: none;
+          z-index: 0;
+        }
+
+        /* Keep content above decorations */
+        .media-header,
+        .media-grid,
+        .media-nature-section-content {
+          position: relative;
+          z-index: 5;
+        }
+
+        /* Header */
+        .media-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 24px;
+          margin-bottom: 46px;
+        }
+
+        .media-header h1 {
+          color: #ffffff;
+          font-size: clamp(36px, 4vw, 56px);
+          line-height: 1;
+          margin-bottom: 12px;
+          text-shadow: 0 0 18px rgba(118, 255, 86, 0.18);
+        }
+
+        .media-header p {
+          color: #bfd1c5;
+          font-size: 18px;
+          letter-spacing: 0.3px;
+        }
+
+        /* Header buttons */
+        .media-actions {
+          display: flex;
+          align-items: center;
+          gap: 18px;
+        }
+
+        .settings-btn {
+          width: 54px;
+          height: 54px;
+          border: none;
+          border-radius: 50%;
+          cursor: pointer;
+          color: #b8c9bd;
+          background: rgba(255,255,255,0.06);
+          box-shadow:
+            inset 0 0 0 1px rgba(255,255,255,0.05),
+            0 12px 26px rgba(0,0,0,0.28);
+        }
+
+        .upload-btn {
+          height: 54px;
+          padding: 0 28px;
+          border: none;
+          border-radius: 999px;
+          cursor: pointer;
+          color: white;
+          font-size: 17px;
+          font-weight: 800;
+          background: linear-gradient(135deg, #73ef47, #00a85a);
+          box-shadow:
+            0 0 0 4px rgba(0, 168, 90, 0.20),
+            0 14px 30px rgba(0, 200, 94, 0.28),
+            inset 0 2px 8px rgba(255,255,255,0.45);
+          transition: 0.25s ease;
+        }
+
+        .upload-btn:hover {
+          transform: translateY(-3px);
+          box-shadow:
+            0 0 0 5px rgba(0, 168, 90, 0.25),
+            0 20px 40px rgba(0, 200, 94, 0.36);
+        }
+
+        .upload-btn i {
+          margin-right: 8px;
+        }
+
+        /* Media grid */
+        .media-grid {
+          display: grid;
+          grid-template-columns: repeat(6, 1fr);
+          gap: 34px 22px;
+        }
+
+        /* Example card styling */
+        .media-card {
+          position: relative;
+          min-height: 260px;
+          border-radius: 14px;
+          overflow: hidden;
+          background: rgba(255,255,255,0.045);
+          border: 1px solid rgba(255,255,255,0.08);
+          box-shadow:
+            0 20px 45px rgba(0,0,0,0.28),
+            inset 0 0 0 1px rgba(255,255,255,0.025);
+          transition: 0.25s ease;
+        }
+
+        .media-card:hover {
+          transform: translateY(-6px);
+          border-color: rgba(127, 255, 95, 0.45);
+          box-shadow:
+            0 25px 50px rgba(0,0,0,0.36),
+            0 0 26px rgba(129, 255, 82, 0.14);
+        }
+
+        .media-card img {
+          width: 100%;
+          height: 220px;
+          display: block;
+          object-fit: cover;
+        }
+
+        .media-card-title {
+          color: white;
+          font-weight: 800;
+          font-size: 14px;
+          text-align: center;
+          padding: 12px 8px 0;
+        }
+
+        /* Vines on both sides */
+        .media-vine {
+          position: absolute;
+          width: 140px;
+          height: 430px;
+          z-index: 2;
+          pointer-events: none;
+          opacity: 0.82;
+        }
+
+        .media-vine::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          border-right: 3px solid rgba(115, 235, 84, 0.42);
+          border-radius: 50%;
+          filter: drop-shadow(0 0 13px rgba(111, 255, 77, 0.28));
+        }
+
+        .media-vine-left {
+          left: 12px;
+          top: 170px;
+          transform: rotate(8deg);
+        }
+
+        .media-vine-right {
+          right: 12px;
+          top: 135px;
+          transform: rotate(188deg);
+        }
+
+        .media-vine span {
+          position: absolute;
+          width: 42px;
+          height: 22px;
+          border-radius: 100% 0 100% 0;
+          background: linear-gradient(135deg, #baff64, #28b338 60%, #0c6424);
+          box-shadow:
+            inset -6px -4px 12px rgba(0,0,0,0.25),
+            0 0 18px rgba(126, 255, 88, 0.18);
+        }
+
+        .media-vine span::after {
+          content: "";
+          position: absolute;
+          width: 75%;
+          height: 1px;
+          top: 50%;
+          left: 10%;
+          background: rgba(255,255,255,0.65);
+          transform: rotate(-18deg);
+        }
+
+        .media-vine span:nth-child(1) {
+          top: 65px;
+          left: 58px;
+          transform: rotate(-24deg);
+        }
+
+        .media-vine span:nth-child(2) {
+          top: 180px;
+          left: 20px;
+          width: 54px;
+          height: 28px;
+          transform: rotate(32deg);
+        }
+
+        .media-vine span:nth-child(3) {
+          top: 310px;
+          left: 72px;
+          width: 38px;
+          height: 19px;
+          transform: rotate(-35deg);
+        }
+
+        /* Root decorations */
+        .media-root {
+          position: absolute;
+          width: 420px;
+          height: 145px;
+          bottom: 18px;
+          z-index: 2;
+          pointer-events: none;
+          opacity: 0.7;
+        }
+
+        .media-root::before,
+        .media-root::after {
+          content: "";
+          position: absolute;
+          border-bottom: 3px solid rgba(135, 210, 83, 0.38);
+          border-radius: 50%;
+          filter: drop-shadow(0 0 10px rgba(124, 255, 81, 0.18));
+        }
+
+        .media-root::before {
+          width: 370px;
+          height: 95px;
+          left: 0;
+          bottom: 36px;
+          transform: rotate(-8deg);
+        }
+
+        .media-root::after {
+          width: 260px;
+          height: 70px;
+          left: 72px;
+          bottom: 14px;
+          transform: rotate(12deg);
+        }
+
+        .media-root-left {
+          left: 80px;
+        }
+
+        .media-root-right {
+          right: 80px;
+          transform: scaleX(-1);
+        }
+
+        /* Leaf clusters */
+        .media-leaf-cluster {
+          position: absolute;
+          width: 170px;
+          height: 150px;
+          z-index: 2;
+          pointer-events: none;
+        }
+
+        .media-leaf-cluster span {
+          position: absolute;
+          width: 54px;
+          height: 28px;
+          border-radius: 100% 0 100% 0;
+          background: linear-gradient(135deg, #c9ff70, #28b338 60%, #0b6824);
+          box-shadow:
+            inset -7px -5px 12px rgba(0,0,0,0.24),
+            0 0 22px rgba(136, 255, 91, 0.16);
+        }
+
+        .media-leaf-cluster span::after {
+          content: "";
+          position: absolute;
+          width: 78%;
+          height: 1px;
+          top: 50%;
+          left: 9%;
+          background: rgba(255,255,255,0.68);
+          transform: rotate(-18deg);
+        }
+
+        .media-leaf-cluster span:nth-child(1) {
+          left: 50px;
+          top: 10px;
+          transform: rotate(-28deg);
+        }
+
+        .media-leaf-cluster span:nth-child(2) {
+          left: 82px;
+          top: 54px;
+          width: 64px;
+          height: 32px;
+          transform: rotate(18deg);
+        }
+
+        .media-leaf-cluster span:nth-child(3) {
+          left: 22px;
+          top: 72px;
+          width: 44px;
+          height: 22px;
+          transform: rotate(42deg);
+        }
+
+        .media-cluster-top {
+          top: 28px;
+          right: 60px;
+        }
+
+        .media-cluster-bottom {
+          left: 55px;
+          bottom: 40px;
+          transform: rotate(185deg);
+        }
+
+        /* Glowing floating particles */
+        .media-nature-section .glow-dot {
+          position: absolute;
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: #c8ff63;
+          box-shadow: 0 0 18px #c8ff63;
+          z-index: 2;
+          pointer-events: none;
+        }
+
+        @keyframes float {
+          0%, 100% { transform: translateY(0) scale(1); opacity: 0.6; }
+          50% { transform: translateY(-15px) scale(1.15); opacity: 0.95; }
+        }
+
+        /* Responsive */
+        @media (max-width: 1500px) {
+          .media-grid {
+            grid-template-columns: repeat(5, 1fr);
+          }
+        }
+
+        @media (max-width: 1200px) {
+          .media-grid {
+            grid-template-columns: repeat(4, 1fr);
+          }
+        }
+
+        @media (max-width: 900px) {
+          .media-grid {
+            grid-template-columns: repeat(3, 1fr);
+          }
+
+          .media-header {
+            flex-direction: column;
+            align-items: flex-start;
+          }
+
+          .media-actions {
+            width: 100%;
+            justify-content: flex-start;
+          }
+        }
+
+        @media (max-width: 650px) {
+          .media-nature-section {
+            padding: 34px 18px 75px;
+            border-radius: 26px;
+          }
+
+          .media-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 26px 14px;
+          }
+
+          .media-card {
+            min-height: 190px;
+          }
+
+          .media-card img {
+            height: 160px;
+          }
+
+          .media-vine,
+          .media-root,
+          .media-leaf-cluster {
+            opacity: 0.45;
+          }
+        }
+      `}</style>
+
       <div className="max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-row justify-between items-center mb-12 gap-6">
-          <div>
-            <h1 className="text-4xl font-bold text-zinc-900 dark:text-white mb-2 tracking-tight">Media</h1>
-            <p className="text-zinc-600 dark:text-zinc-400 text-lg">Upload and preserve your musical memories.</p>
+        <main className="media-nature-section animate-fade-in">
+          {/* Vines on both sides */}
+          <div className="media-vine media-vine-left">
+            <span></span>
+            <span></span>
+            <span></span>
           </div>
-          <div className="flex items-center gap-3">
-            {isAdmin && (
-              <button
-                onClick={() => setShowSettings(!showSettings)}
-                className="p-3 rounded-full bg-zinc-100 dark:bg-zinc-900 hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400 transition-colors"
-                title="Cloudinary Settings"
-              >
-                <Settings className="w-5 h-5" />
-              </button>
-            )}
-            {isAdmin && (
-              <div className="relative upload-dropdown-container">
-              <button 
-                onClick={() => setShowUploadOptions(!showUploadOptions)}
-                disabled={isUploading}
-                className="transition-all hover:scale-105 hover:opacity-90 active:scale-95 disabled:opacity-50 disabled:hover:scale-100 disabled:active:scale-100"
-              >
-                {isUploading ? (
-                  <div className="flex items-center gap-2 bg-emerald-600 text-white px-8 py-4 rounded-full font-bold min-w-[200px] justify-center">
-                    <Loader2 className="w-5 h-5 animate-spin" /> 
-                    <div className="flex flex-col items-start leading-tight">
-                      <span>{uploadStatus || 'Uploading...'}</span>
-                      {uploadProgress !== null && (
-                        <span className="text-xs opacity-80">{uploadProgress}% complete</span>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <img src="https://i.ibb.co/dshZr7GS/Upload.png" alt="Upload Media" className="h-14 w-auto" referrerPolicy="no-referrer" />
+          <div className="media-vine media-vine-right">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+
+          {/* Root decorations */}
+          <div className="media-root media-root-left"></div>
+          <div className="media-root media-root-right"></div>
+
+          {/* Leaf clusters */}
+          <div className="media-leaf-cluster media-cluster-top">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+          <div className="media-leaf-cluster media-cluster-bottom">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+
+          {/* Glowing floating particles */}
+          <div className="glow-dot" style={{ top: '15%', left: '12%', animation: 'float 6s ease-in-out infinite' }}></div>
+          <div className="glow-dot" style={{ top: '45%', right: '15%', animation: 'float 8s ease-in-out infinite 1s' }}></div>
+          <div className="glow-dot" style={{ bottom: '25%', left: '20%', animation: 'float 5s ease-in-out infinite 2s' }}></div>
+          <div className="glow-dot" style={{ top: '75%', right: '8%', animation: 'float 7s ease-in-out infinite 0.5s' }}></div>
+
+          <div className="media-nature-section-content">
+            {/* Header */}
+            <div className="media-header">
+              <div>
+                <h1 className="font-extrabold tracking-tight">Media</h1>
+                <p>Upload and preserve your musical memories.</p>
+              </div>
+              <div className="media-actions">
+                {isAdmin && (
+                  <button
+                    onClick={() => setShowSettings(!showSettings)}
+                    className="settings-btn flex items-center justify-center transition-all hover:scale-105"
+                    title="Cloudinary Settings"
+                  >
+                    <Settings className="w-5 h-5" />
+                  </button>
                 )}
-              </button>
+                {isAdmin && (
+                  <div className="relative upload-dropdown-container">
+                    <button 
+                      onClick={() => setShowUploadOptions(!showUploadOptions)}
+                      disabled={isUploading}
+                      className="upload-btn flex items-center gap-2"
+                    >
+                      {isUploading ? (
+                        <>
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                          <span>{uploadStatus || 'Uploading...'}</span>
+                        </>
+                      ) : (
+                        <>
+                          <i className="fa-solid fa-cloud-arrow-up"></i>
+                          Upload Media
+                        </>
+                      )}
+                    </button>
 
-              {showUploadOptions && !isUploading && (
-                <div className="absolute top-full right-0 mt-2 w-48 bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-zinc-100 dark:border-zinc-800 overflow-hidden z-50">
-                  <button 
-                    onClick={() => triggerUpload('image')}
-                    className="w-full text-left px-6 py-4 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-900 dark:text-white font-medium transition-colors flex items-center gap-3"
-                  >
-                    <ImageIcon className="w-5 h-5 text-emerald-500" />
-                    Image
-                  </button>
-                  <button 
-                    onClick={() => triggerUpload('audio')}
-                    className="w-full text-left px-6 py-4 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-900 dark:text-white font-medium transition-colors flex items-center gap-3"
-                  >
-                    <Music className="w-5 h-5 text-emerald-500" />
-                    Audio
-                  </button>
-                  <button 
-                    onClick={() => triggerUpload('sheet')}
-                    className="w-full text-left px-6 py-4 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-900 dark:text-white font-medium transition-colors flex items-center gap-3"
-                  >
-                    <FileText className="w-5 h-5 text-emerald-500" />
-                    Sheet
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-          </div>
-          <input 
-            type="file" 
-            ref={fileInputRef} 
-            onChange={handleFileChange} 
-            className="hidden" 
-            accept={uploadType === 'image' ? 'image/*' : uploadType === 'audio' ? 'audio/*' : uploadType === 'sheet' ? 'application/zip,application/x-zip-compressed,.zip' : '*/*'}
-          />
-        </div>
-
-        {showSettings && isAdmin && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-12 p-6 rounded-3xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 settings-dropdown-container"
-          >
-            <div className="flex items-center gap-2 mb-4 text-emerald-600 dark:text-emerald-500">
-              <Cloud className="w-5 h-5" />
-              <h2 className="font-bold">Cloudinary Upload Settings</h2>
-            </div>
-            <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-6">
-              Configure Cloudinary to bypass Firebase CORS issues. Make sure your upload preset is set to <strong>Unsigned</strong> in your Cloudinary settings.
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-              <div>
-                <label className="block text-xs font-bold text-zinc-500 uppercase mb-2">Cloud Name</label>
-                <input
-                  type="text"
-                  value={tempCloudName}
-                  onChange={(e) => setTempCloudName(e.target.value)}
-                  placeholder="e.g. dxyz12345"
-                  className="w-full bg-white dark:bg-black border border-zinc-200 dark:border-zinc-800 rounded-2xl px-4 py-3 text-zinc-900 dark:text-white focus:outline-none focus:border-emerald-500 transition-colors"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-zinc-500 uppercase mb-2">Unsigned Upload Preset</label>
-                <input
-                  type="text"
-                  value={tempUploadPreset}
-                  onChange={(e) => setTempUploadPreset(e.target.value)}
-                  placeholder="e.g. preset_name"
-                  className="w-full bg-white dark:bg-black border border-zinc-200 dark:border-zinc-800 rounded-2xl px-4 py-3 text-zinc-900 dark:text-white focus:outline-none focus:border-emerald-500 transition-colors"
-                />
-              </div>
-            </div>
-            <div className="flex flex-col gap-4">
-              <div className="flex gap-4">
-                <button
-                  onClick={() => {
-                    saveCloudinaryConfig(tempCloudName, tempUploadPreset);
-                    setShowSettings(false);
-                    alert("Cloudinary settings saved!");
-                  }}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-3 rounded-full font-bold transition-all shadow-lg shadow-emerald-600/20"
-                >
-                  Save Settings
-                </button>
-              </div>
-              <p className="text-xs text-zinc-500">
-                Note: Cloudinary settings are saved to your local storage.
-              </p>
-            </div>
-          </motion.div>
-        )}
-
-        {showDetailsModal && (
-          <MediaDetailsModal 
-            file={pendingFile}
-            onSave={(details) => startUpload(pendingFile, details)}
-            onClose={() => {
-              setShowDetailsModal(false);
-              setPendingFile(null);
-              setUploadType(null);
-            }}
-            uploadType={uploadType}
-          />
-        )}
-
-        {images.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-32 border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-3xl">
-            <div className="w-20 h-20 bg-zinc-100 dark:bg-zinc-900 rounded-full flex items-center justify-center mb-6">
-              <ImageIcon className="w-10 h-10 text-zinc-400" />
-            </div>
-            <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-2">No media yet</h3>
-            <p className="text-zinc-500 dark:text-zinc-400 mb-8">Start by uploading your first musical moment.</p>
-            {isAdmin && (
-              <button 
-                onClick={() => setShowUploadOptions(true)}
-                className="text-emerald-600 font-bold hover:text-emerald-500 transition-colors"
-              >
-                Click here to upload
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-            {images.map((img) => {
-              const isImage = !img.type?.startsWith('audio/') && 
-                             !(img.type === 'application/pdf' || img.type?.includes('zip') || img.url.endsWith('.zip'));
-              
-              return (
-                <div 
-                  key={img.id} 
-                  className="flex flex-col gap-2 group relative"
-                >
-                  <div 
-                    onClick={() => setSelectedImage(img)}
-                    className="relative aspect-square rounded-xl overflow-hidden bg-zinc-900 border border-zinc-800 transition-all duration-300 cursor-pointer hover:border-emerald-500/50"
-                  >
-                    {img.type?.startsWith('audio/') ? (
-                      <div className="w-full h-full flex flex-col items-center justify-center p-1 bg-zinc-950">
-                        <Music className="w-8 h-8 text-emerald-500" />
+                    {showUploadOptions && !isUploading && (
+                      <div className="absolute top-full right-0 mt-2 w-48 bg-zinc-950/95 backdrop-blur-md rounded-2xl shadow-2xl border border-emerald-500/20 overflow-hidden z-20">
+                        <button 
+                          onClick={() => triggerUpload('image')}
+                          className="w-full text-left px-6 py-4 hover:bg-emerald-950/30 text-white font-medium transition-colors flex items-center gap-3"
+                        >
+                          <ImageIcon className="w-5 h-5 text-emerald-400" />
+                          Image
+                        </button>
+                        <button 
+                          onClick={() => triggerUpload('audio')}
+                          className="w-full text-left px-6 py-4 hover:bg-emerald-950/30 text-white font-medium transition-colors flex items-center gap-3"
+                        >
+                          <Music className="w-5 h-5 text-emerald-400" />
+                          Audio
+                        </button>
+                        <button 
+                          onClick={() => triggerUpload('sheet')}
+                          className="w-full text-left px-6 py-4 hover:bg-emerald-950/30 text-white font-medium transition-colors flex items-center gap-3"
+                        >
+                          <FileText className="w-5 h-5 text-emerald-400" />
+                          Sheet
+                        </button>
                       </div>
-                    ) : (img.type === 'application/pdf' || img.type?.includes('zip') || img.url.endsWith('.zip')) ? (
-                      <div className="w-full h-full flex flex-col items-center justify-center p-1 bg-zinc-950">
-                        <FileText className="w-8 h-8 text-emerald-500" />
-                      </div>
-                    ) : (
-                      <img 
-                        src={img.url} 
-                        alt={img.title || "User upload"} 
-                        className="w-full h-full object-contain"
-                        referrerPolicy="no-referrer"
-                      />
                     )}
+                  </div>
+                )}
+              </div>
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={handleFileChange} 
+                className="hidden" 
+                accept={uploadType === 'image' ? 'image/*' : uploadType === 'audio' ? 'audio/*' : uploadType === 'sheet' ? 'application/zip,application/x-zip-compressed,.zip' : '*/*'}
+                multiple
+              />
+            </div>
 
-                    {/* Admin Menu Button */}
-                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity media-menu-container">
+            {/* Cloudinary Settings dropdown panel */}
+            {showSettings && isAdmin && (
+              <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mb-12 p-6 rounded-3xl bg-zinc-900/80 backdrop-blur-md border border-emerald-500/25 settings-dropdown-container text-white relative z-50"
+              >
+                <div className="flex items-center gap-2 mb-4 text-emerald-400">
+                  <Cloud className="w-5 h-5" />
+                  <h2 className="font-bold text-lg">Cloudinary Upload Settings</h2>
+                </div>
+                <p className="text-sm text-zinc-300 mb-6">
+                  Configure Cloudinary to bypass Firebase CORS issues. Make sure your upload preset is set to <strong>Unsigned</strong> in your Cloudinary settings.
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-400 uppercase mb-2">Cloud Name</label>
+                    <input
+                      type="text"
+                      value={tempCloudName}
+                      onChange={(e) => setTempCloudName(e.target.value)}
+                      placeholder="e.g. dxyz12345"
+                      className="w-full bg-black/50 border border-zinc-800 rounded-2xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-400 uppercase mb-2">Unsigned Upload Preset</label>
+                    <input
+                      type="text"
+                      value={tempUploadPreset}
+                      onChange={(e) => setTempUploadPreset(e.target.value)}
+                      placeholder="e.g. preset_name"
+                      className="w-full bg-black/50 border border-zinc-800 rounded-2xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 transition-colors"
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-col gap-4">
+                  <div className="flex gap-4">
+                    <button
+                      onClick={() => {
+                        saveCloudinaryConfig(tempCloudName, tempUploadPreset);
+                        setShowSettings(false);
+                        alert("Cloudinary settings saved!");
+                      }}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-3 rounded-full font-bold transition-all shadow-lg shadow-emerald-500/20"
+                    >
+                      Save Settings
+                    </button>
+                  </div>
+                  <p className="text-xs text-zinc-500">
+                    Note: Cloudinary settings are saved to your local storage.
+                  </p>
+                </div>
+              </motion.div>
+            )}
+
+            {showDetailsModal && (
+              <MediaDetailsModal 
+                file={pendingFile}
+                onSave={(details) => startUpload(pendingFile, details)}
+                onClose={() => {
+                  setShowDetailsModal(false);
+                  setPendingFile(null);
+                  setUploadType(null);
+                }}
+                uploadType={uploadType}
+              />
+            )}
+
+            {/* Media Grid */}
+            {images.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-32 border border-dashed border-emerald-500/20 bg-black/30 rounded-3xl">
+                <div className="w-20 h-20 bg-emerald-950/20 rounded-full flex items-center justify-center mb-6 border border-emerald-500/10">
+                  <ImageIcon className="w-10 h-10 text-emerald-400/80" />
+                </div>
+                <h3 className="text-xl font-bold text-white mb-2">No media yet</h3>
+                <p className="text-zinc-400 mb-8 max-w-sm text-center">Start by uploading your first musical performance, sheet music, or illustration.</p>
+                {isAdmin && (
+                  <button 
+                    onClick={() => setShowUploadOptions(true)}
+                    className="text-emerald-400 font-bold hover:text-emerald-300 transition-colors flex items-center gap-2 bg-emerald-950/40 border border-emerald-500/30 px-6 py-3 rounded-full"
+                  >
+                    Click here to upload
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="media-grid">
+                {images.map((img) => {
+                  return (
+                    <div 
+                      key={img.id} 
+                      className="media-card group"
+                      onClick={() => setSelectedImage(img)}
+                    >
+                      {img.type?.startsWith('audio/') ? (
+                        <div className="w-full h-[220px] flex flex-col items-center justify-center bg-zinc-950/80 gap-3 border-b border-zinc-800">
+                          <Music className="w-11 h-11 text-emerald-400" />
+                          <span className="text-[10px] font-bold text-emerald-400/80 bg-emerald-950/50 border border-emerald-900 px-2 py-0.5 rounded uppercase tracking-widest">{img.instrument || 'Audio'}</span>
+                        </div>
+                      ) : (img.type === 'application/pdf' || img.type?.includes('zip') || img.url.endsWith('.zip')) ? (
+                        <div className="w-full h-[220px] flex flex-col items-center justify-center bg-zinc-950/80 gap-3 border-b border-zinc-800">
+                          <FileText className="w-11 h-11 text-emerald-400" />
+                          <span className="text-[10px] font-bold text-emerald-400/80 bg-emerald-950/50 border border-emerald-900 px-2 py-0.5 rounded uppercase tracking-widest">{img.instrument || 'Sheet'}</span>
+                        </div>
+                      ) : (
+                        <img 
+                          src={img.url} 
+                          alt={img.title || "User upload"} 
+                          referrerPolicy="no-referrer"
+                        />
+                      )}
+
+                      {/* Menu overlay actions */}
+                      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity media-menu-container z-20">
                         <button 
                           onClick={(e) => {
                             e.stopPropagation();
                             setActiveMenuId(activeMenuId === img.id ? null : img.id);
                           }}
-                          className="p-1.5 bg-black/60 hover:bg-black/80 text-white rounded-full backdrop-blur-md transition-colors"
+                          className="p-1.5 bg-black/80 hover:bg-emerald-900 border border-emerald-500/30 text-white rounded-full backdrop-blur-md transition-colors"
                         >
                           <MoreVertical className="w-4 h-4" />
                         </button>
 
                         {activeMenuId === img.id && (
-                          <div className="absolute top-full right-0 mt-1 w-32 bg-white dark:bg-zinc-900 rounded-xl shadow-2xl border border-zinc-100 dark:border-zinc-800 overflow-hidden z-50">
+                          <div className="absolute top-full right-0 mt-1 w-36 bg-zinc-950 border border-emerald-500/20 rounded-xl shadow-2xl overflow-hidden z-50">
                             <button 
                               onClick={(e) => {
                                 e.stopPropagation();
                                 downloadMedia(img.url, img.title);
                                 setActiveMenuId(null);
                               }}
-                              className="w-full text-left px-4 py-2.5 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-900 dark:text-white text-xs font-medium transition-colors flex items-center gap-2"
+                              className="w-full text-left px-4 py-2.5 hover:bg-emerald-950/30 text-zinc-200 text-xs font-semibold transition-colors flex items-center gap-2 border-b border-zinc-900"
                             >
-                              <Download className="w-3.5 h-3.5 text-emerald-500" />
+                              <Download className="w-3.5 h-3.5 text-emerald-400" />
                               Download
                             </button>
                             {img.type?.startsWith('audio/') && (
@@ -4710,10 +7414,10 @@ const MediaPage = () => {
                                   }
                                   setActiveMenuId(null);
                                 }}
-                                className="w-full text-left px-4 py-2.5 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-900 dark:text-white text-xs font-medium transition-colors flex items-center gap-2"
+                                className="w-full text-left px-4 py-2.5 hover:bg-emerald-950/30 text-zinc-200 text-xs font-semibold transition-colors flex items-center gap-2 border-b border-zinc-900"
                               >
-                                <Play className="w-3.5 h-3.5 text-blue-500" />
-                                {img.inPlaylist ? 'Remove from Playlist' : 'Add to Playlist'}
+                                <Play className="w-3.5 h-3.5 text-blue-400" />
+                                {img.inPlaylist ? 'From Playlist' : 'To Playlist'}
                               </button>
                             )}
                             {isAdmin && (
@@ -4724,10 +7428,10 @@ const MediaPage = () => {
                                     setEditingMedia(img);
                                     setActiveMenuId(null);
                                   }}
-                                  className="w-full text-left px-4 py-2.5 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-900 dark:text-white text-xs font-medium transition-colors flex items-center gap-2"
+                                  className="w-full text-left px-4 py-2.5 hover:bg-emerald-950/30 text-emerald-400 text-xs font-semibold transition-colors flex items-center gap-2 border-b border-zinc-900"
                                 >
-                                  <Edit2 className="w-3.5 h-3.5 text-emerald-500" />
-                                  Edit
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                  Edit Info
                                 </button>
                                 <button 
                                   onClick={(e) => {
@@ -4735,7 +7439,7 @@ const MediaPage = () => {
                                     setDeletingMedia(img);
                                     setActiveMenuId(null);
                                   }}
-                                  className="w-full text-left px-4 py-2.5 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-red-600 dark:text-red-500 text-xs font-medium transition-colors flex items-center gap-2"
+                                  className="w-full text-left px-4 py-2.5 hover:bg-red-950/30 text-red-400 text-xs font-semibold transition-colors flex items-center gap-2"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
                                   Delete
@@ -4745,32 +7449,23 @@ const MediaPage = () => {
                           </div>
                         )}
                       </div>
-                    </div>
-                  
-                  {/* Always visible info - centered */}
-                  <div className="px-1 text-center">
-                    <p className="text-white font-bold text-xs truncate leading-tight">
-                      {(!img.artist && !img.instrument) ? img.title.replace(/\.mp3$/, '') : (img.title || 'Untitled')}
-                    </p>
-                    {(!img.type?.startsWith('audio/') && 
-                      !(img.type === 'application/pdf' || img.type?.includes('zip') || img.url.endsWith('.zip'))) ? null : 
-                      (!img.artist && !img.instrument) ? null : (
-                      <>
-                        <p className="text-zinc-400 text-[10px] truncate leading-tight mt-0.5">{img.artist || 'Unknown'}</p>
-                        <div className="flex items-center justify-center gap-1 mt-1">
-                          <InstrumentIcon instrument={img.instrument} className="w-3.5 h-3.5 text-emerald-500" />
-                          <span className="text-emerald-500/80 text-[9px] font-bold uppercase truncate">{img.instrument}</span>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
 
-        {/* Lightbox / Image Viewer */}
+                      {/* Title block */}
+                      <div className="media-card-title truncate pb-3 bg-zinc-950/90 border-t border-zinc-900 px-3 flex flex-col justify-center">
+                        <span className="truncate block text-zinc-100">{(!img.artist && !img.instrument) ? (img.title || 'Untitled').replace(/\.mp3$/, '') : (img.title || 'Untitled')}</span>
+                        {img.artist && (
+                          <span className="block text-[10px] text-zinc-400 font-normal mt-0.5 truncate">{img.artist}</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </main>
+
+        {/* Lightbox / Viewer modal */}
         {selectedImage && (
           <div 
             className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 p-4 md:p-12"
@@ -4787,8 +7482,8 @@ const MediaPage = () => {
               onClick={e => e.stopPropagation()}
             >
               {selectedImage.type?.startsWith('audio/') ? (
-                <div className="w-full max-w-md p-8 bg-zinc-900 rounded-2xl shadow-2xl flex flex-col items-center justify-center border border-zinc-800">
-                  <Music className="w-24 h-24 text-emerald-500 mb-4" />
+                <div className="w-full max-w-md p-8 bg-zinc-950 rounded-2xl shadow-2xl flex flex-col items-center justify-center border border-zinc-800">
+                  <Music className="w-24 h-24 text-emerald-400 mb-4" />
                   {selectedImage.title && <h3 className="text-xl font-bold text-white mb-1">{selectedImage.title}</h3>}
                   {selectedImage.artist && <p className="text-zinc-400 mb-6">{selectedImage.artist}</p>}
                   <audio 
@@ -4813,8 +7508,8 @@ const MediaPage = () => {
                   />
                 </div>
               ) : (selectedImage.type === 'application/pdf' || selectedImage.type?.includes('zip') || selectedImage.url.endsWith('.zip')) ? (
-                <div className="w-full max-w-4xl h-[80vh] bg-zinc-900 rounded-2xl shadow-2xl flex flex-col border border-zinc-800 overflow-hidden">
-                  <div className="p-4 border-b border-zinc-800 flex justify-between items-center">
+                <div className="w-full max-w-4xl h-[80vh] bg-zinc-950 rounded-2xl shadow-2xl flex flex-col border border-zinc-800 overflow-hidden">
+                  <div className="p-4 border-b border-zinc-800 flex justify-between items-center bg-zinc-900">
                     <div>
                       {selectedImage.title && <h3 className="text-lg font-bold text-white">{selectedImage.title}</h3>}
                       {selectedImage.artist && <p className="text-zinc-400 text-sm">{selectedImage.artist}</p>}
@@ -4829,10 +7524,10 @@ const MediaPage = () => {
                     </a>
                   </div>
                   {selectedImage.type === 'application/pdf' ? (
-                    <iframe src={`https://docs.google.com/viewer?url=${encodeURIComponent(selectedImage.url)}&embedded=true`} className="w-full h-full" title="PDF Viewer" />
+                    <iframe src={`https://docs.google.com/viewer?url=${encodeURIComponent(selectedImage.url)}&embedded=true`} className="w-full h-full bg-white" title="PDF Viewer" />
                   ) : (
-                    <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-zinc-900">
-                      <FileText className="w-24 h-24 text-emerald-500 mb-6" />
+                    <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-zinc-950">
+                      <FileText className="w-24 h-24 text-emerald-400 mb-6" />
                       <h4 className="text-2xl font-bold text-white mb-2">ZIP Archive</h4>
                       <p className="text-zinc-400 max-w-md mb-8">
                         This is a ZIP archive containing sheet music or related files.
@@ -4844,7 +7539,7 @@ const MediaPage = () => {
                 <img 
                   src={selectedImage.url} 
                   alt="Full view" 
-                  className="max-w-[80vw] max-h-[70vh] object-contain rounded-lg shadow-2xl"
+                  className="max-w-[80vw] max-h-[70vh] object-contain rounded-lg shadow-2xl border border-zinc-800"
                   referrerPolicy="no-referrer"
                 />
               )}
@@ -4902,7 +7597,6 @@ const MediaPage = () => {
                         
                         await navigator.clipboard.writeText(finalUrl);
                         
-                        // Visual feedback
                         const originalText = document.getElementById('copy-btn-text')?.innerText;
                         const btn = document.getElementById('copy-btn');
                         if (btn) {
@@ -4954,11 +7648,165 @@ const MediaPage = () => {
   );
 };
 
+const PerformanceHero = () => {
+  return (
+    <section className="relative overflow-hidden pt-12 pb-16 bg-transparent transition-colors duration-300">
+      <div className="max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+        <div className="bg-zinc-900/40 backdrop-blur-xl border border-zinc-800/60 rounded-[32px] p-8 md:p-12 lg:p-16 relative overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.3)]">
+          {/* Subtle Ambient Background Gradients */}
+          <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-[#7ab18a]/10 rounded-full blur-[120px] pointer-events-none" />
+          <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-[#b5d98d]/5 rounded-full blur-[100px] pointer-events-none" />
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center relative z-10">
+            {/* Left Column: Context & Typography */}
+            <div className="lg:col-span-7 space-y-6">
+              <motion.div 
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-800/50 border border-zinc-700/50 text-xs text-[#b5d98d] font-mono tracking-wider uppercase"
+              >
+                <span className="w-2 h-2 rounded-full bg-[#7ab18a] animate-pulse" />
+                VIRTUAL PERFORMANCE SUITE
+              </motion.div>
+
+              <motion.h1 
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.1, duration: 0.5 }}
+                className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-tight"
+                style={{ fontFamily: 'Courier New, Courier, monospace', color: '#b5d98d' }}
+              >
+                Virtual Instrument <span style={{ color: '#7ab18a' }}>Showcases</span>
+              </motion.h1>
+
+              <motion.p 
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.2, duration: 0.5 }}
+                className="text-base sm:text-lg leading-relaxed text-zinc-300 max-w-xl font-medium"
+                style={{ fontFamily: 'Courier New, Courier, monospace' }}
+              >
+                Experience our curated digital performances where mathematical precision meets acoustic artistry. Every cover and performance showcases the limit of high-definition tactile rendering, sample modeling, and exquisite digital synthesizers.
+              </motion.p>
+
+              {/* Stats / Badges row */}
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.3 }}
+                className="flex flex-wrap gap-4 pt-4 text-xs font-mono text-zinc-400"
+              >
+                <div className="flex flex-col px-4 py-2 bg-zinc-950/40 rounded-xl border border-zinc-800/40">
+                  <span className="text-lg font-bold text-[#b5d98d]">Studio</span>
+                  <span>Master Quality</span>
+                </div>
+                <div className="flex flex-col px-4 py-2 bg-zinc-950/40 rounded-xl border border-zinc-800/40">
+                  <span className="text-lg font-bold text-[#7ab18a]">24-Bit</span>
+                  <span>Lossless Audio</span>
+                </div>
+                <div className="flex flex-col px-4 py-2 bg-zinc-950/40 rounded-xl border border-zinc-800/40">
+                  <span className="text-lg font-bold text-white">4K UHD</span>
+                  <span>Digital Video</span>
+                </div>
+              </motion.div>
+            </div>
+
+            {/* Right Column: Visualizer Synthesizer Frame */}
+            <div className="lg:col-span-5 flex justify-center">
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.2, duration: 0.6 }}
+                className="w-full max-w-md bg-zinc-950/60 border border-zinc-800 p-6 rounded-2xl relative overflow-hidden group shadow-2xl"
+              >
+                {/* Tech corner designs */}
+                <div className="absolute top-2 left-2 w-3 h-3 border-t border-l border-[#7ab18a]/50" />
+                <div className="absolute top-2 right-2 w-3 h-3 border-t border-r border-[#7ab18a]/50" />
+                <div className="absolute bottom-2 left-2 w-3 h-3 border-b border-l border-[#7ab18a]/50" />
+                <div className="absolute bottom-2 right-2 w-3 h-3 border-b border-r border-[#7ab18a]/50" />
+
+                <div className="flex items-center justify-between border-b border-zinc-800 pb-4 mb-4">
+                  <span className="text-xs font-mono tracking-widest text-[#7ab18a] uppercase font-bold">DIGITAL SIGNAL SPECTRA</span>
+                  <div className="flex gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-red-500/80 animate-ping" />
+                    <span className="w-2 h-2 rounded-full bg-red-500" />
+                  </div>
+                </div>
+
+                {/* Simulated Waveform & Equalizer */}
+                <div className="flex items-end justify-between h-40 gap-1 px-2 pt-4 border border-zinc-900 bg-zinc-950/80 rounded-lg relative overflow-hidden">
+                  {/* Grid Lines Overlay */}
+                  <div className="absolute inset-0 grid grid-rows-4 pointer-events-none opacity-[0.03]">
+                    <div className="border-b border-white" />
+                    <div className="border-b border-white" />
+                    <div className="border-b border-white" />
+                    <div className="border-b border-white" />
+                  </div>
+
+                  <EqualizerBar delay={0.0} />
+                  <EqualizerBar delay={0.15} />
+                  <EqualizerBar delay={0.05} />
+                  <EqualizerBar delay={0.3} />
+                  <EqualizerBar delay={0.1} />
+                  <EqualizerBar delay={0.4} />
+                  <EqualizerBar delay={0.2} />
+                  <EqualizerBar delay={0.55} />
+                  <EqualizerBar delay={0.25} />
+                  <EqualizerBar delay={0.45} />
+                  <EqualizerBar delay={0.15} />
+                  <EqualizerBar delay={0.6} />
+                  <EqualizerBar delay={0.35} />
+                  <EqualizerBar delay={0.5} />
+                  <EqualizerBar delay={0.2} />
+                  <EqualizerBar delay={0.7} />
+                  <EqualizerBar delay={0.3} />
+                  <EqualizerBar delay={0.4} />
+                  <EqualizerBar delay={0.1} />
+                  <EqualizerBar delay={0.55} />
+                  <EqualizerBar delay={0.25} />
+                  <EqualizerBar delay={0.45} />
+                  <EqualizerBar delay={0.15} />
+                  <EqualizerBar delay={0.6} />
+                </div>
+
+                <div className="mt-4 pt-3 flex justify-between items-center text-[11px] font-mono text-zinc-500">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#b5d98d]" />
+                    <span>L-CH SENSITIVITY</span>
+                  </div>
+                  <span>96.4 kHz / 32-bit float</span>
+                </div>
+              </motion.div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};
+
+const EqualizerBar = ({ delay }: { delay: number }) => (
+  <motion.div 
+    className="w-full bg-gradient-to-t from-[#7ab18a]/80 to-[#b5d98d] rounded-t-sm"
+    style={{ height: '10%' }}
+    animate={{ 
+      height: ["10%", "85%", "25%", "95%", "15%", "70%", "45%", "90%", "10%"] 
+    }}
+    transition={{ 
+      duration: 2.2, 
+      repeat: Infinity, 
+      ease: "easeInOut",
+      delay: delay 
+    }}
+  />
+);
+
 const PerformancePage = () => {
   const [searchQuery, setSearchQuery] = useState('');
 
   return (
     <div className="pt-20">
+      <PerformanceHero />
       <DynamicEditablePage 
         collectionName="performance_sections"
         fixedSections={[
@@ -4991,6 +7839,7 @@ const Spark = ({ x, y, onComplete }: { x: number, y: number, onComplete: () => v
 };
 
 export default function App() {
+  const location = useLocation();
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isAuthReady, setIsAuthReady] = useState(false);
@@ -5009,6 +7858,22 @@ export default function App() {
     localStorage.setItem('cloudinary_upload_preset', uploadPreset);
     setCloudinaryConfig({ cloudName, uploadPreset });
   };
+
+  useEffect(() => {
+    if (location.pathname === '/') {
+      document.body.style.backgroundImage = `url('https://res.cloudinary.com/dj52ig0l7/image/upload/v1780378965/ns6vsegmj57d8oak0rh6.png')`;
+      document.body.style.backgroundSize = 'cover';
+      document.body.style.backgroundPosition = 'top center';
+      document.body.style.backgroundAttachment = 'scroll';
+      document.body.style.backgroundRepeat = 'no-repeat';
+    } else {
+      document.body.style.backgroundImage = '';
+      document.body.style.backgroundSize = '';
+      document.body.style.backgroundPosition = '';
+      document.body.style.backgroundAttachment = '';
+      document.body.style.backgroundRepeat = '';
+    }
+  }, [location.pathname]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -5110,7 +7975,13 @@ export default function App() {
       link.href = url;
     };
 
-    const savedLogo = localStorage.getItem('app_logo') || 'https://pixabay.com/images/download/u_op8btczor7-green-10179478_1280.png';
+    let savedLogo = localStorage.getItem('app_logo');
+    if (savedLogo && savedLogo.includes('pixabay.com')) {
+      localStorage.setItem('app_logo', 'https://res.cloudinary.com/dj52ig0l7/image/upload/v1780632694/pua45jexzmemmkjrmvox.png');
+      savedLogo = 'https://res.cloudinary.com/dj52ig0l7/image/upload/v1780632694/pua45jexzmemmkjrmvox.png';
+    } else if (!savedLogo) {
+      savedLogo = 'https://res.cloudinary.com/dj52ig0l7/image/upload/v1780632694/pua45jexzmemmkjrmvox.png';
+    }
     updateFavicon(savedLogo);
 
     const handleGlobalUpdate = (e: any) => {
@@ -5139,8 +8010,14 @@ export default function App() {
         showExitConfirmation,
         setShowExitConfirmation
       }}>
-        <div className="min-h-screen font-sans selection:bg-emerald-100 selection:text-emerald-900 transition-colors duration-300 bg-zinc-950 text-white dark">
+        <div 
+          className={`min-h-screen font-sans selection:bg-emerald-100 selection:text-emerald-900 transition-colors duration-300 ${
+            location.pathname === '/' ? 'bg-transparent text-white dark' : 
+            (location.pathname === '/about' || location.pathname === '/contact' || location.pathname === '/products' ? 'bg-[#fbfff4] text-[#263238]' : 'bg-zinc-950 text-white dark')
+          }`}
+        >
           <Navbar />
+          <ElementInspector isEditMode={isEditMode} />
           <main>
             <Routes>
               <Route path="/" element={<HomePage />} />
@@ -5152,9 +8029,46 @@ export default function App() {
               <Route path="/media" element={<MediaPage />} />
             </Routes>
           </main>
-          <Footer />
+          {location.pathname !== '/about' && location.pathname !== '/contact' && location.pathname !== '/products' && <Footer />}
           <LoginModal />
           {showLoginSuccessModal && <LoginSuccessModal onClose={() => setShowLoginSuccessModal(false)} />}
+          <AnimatePresence>
+            {showExitConfirmation && (
+              <div className="fixed inset-0 z-[11000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 max-w-sm w-full shadow-2xl"
+                >
+                  <div className="flex items-center gap-3 mb-4 text-emerald-400">
+                    <AlertTriangle className="w-6 h-6" />
+                    <h3 className="text-xl font-bold text-white">Exit Edit Mode?</h3>
+                  </div>
+                  <p className="text-zinc-400 mb-6 leading-relaxed">
+                    Your changes are automatically saved to the database. Are you sure you want to finish editing?
+                  </p>
+                  <div className="flex flex-col gap-3">
+                    <button 
+                      onClick={() => {
+                        setIsEditMode(false);
+                        setShowExitConfirmation(false);
+                      }}
+                      className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl transition-colors"
+                    >
+                      Yes, Finish Editing
+                    </button>
+                    <button 
+                      onClick={() => setShowExitConfirmation(false)}
+                      className="w-full py-3 bg-zinc-800 hover:bg-zinc-700 text-white font-bold rounded-xl transition-colors"
+                    >
+                      Keep Editing
+                    </button>
+                  </div>
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>
           {sparks.map(s => <Spark key={s.id} x={s.x} y={s.y} onComplete={() => setSparks(prev => prev.filter(p => p.id !== s.id))} />)}
         </div>
       </AuthContext.Provider>

@@ -43,29 +43,29 @@ export const ImageToolbox: React.FC<ImageToolboxProps> = ({
       initial={{ x: 300, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
       exit={{ x: 300, opacity: 0 }}
-      className="fixed top-24 right-6 w-80 bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl z-[510] overflow-hidden flex flex-col"
+      className="fixed top-24 right-6 w-80 admin-water-bg rounded-2xl shadow-2xl z-[510] overflow-hidden flex flex-col"
     >
-      <div className="p-4 border-b border-zinc-800 flex items-center justify-between bg-zinc-900/50">
+      <div className="p-4 border-b border-cyan-500/20 flex items-center justify-between bg-cyan-950/20 z-10">
         <div className="flex items-center gap-2">
-          <div className={`w-8 h-8 ${
-            item.type === 'video' ? 'bg-purple-500/10' : 
-            item.type === 'text' ? 'bg-emerald-500/10' : 'bg-blue-500/10'
-          } rounded-lg flex items-center justify-center`}>
-            {item.type === 'video' ? <Video className="w-4 h-4 text-purple-500" /> : 
-             item.type === 'text' ? <TypeIcon className="w-4 h-4 text-emerald-500" /> : 
-             <TypeIcon className="w-4 h-4 text-blue-500" />}
+          <div className="w-8 h-8 bg-cyan-500/10 rounded-lg flex items-center justify-center border border-cyan-500/25 animate-pulse">
+            {item.type === 'video' ? <Video className="w-4 h-4 text-cyan-400" /> : 
+             item.type === 'text' ? <TypeIcon className="w-4 h-4 text-cyan-400" /> : 
+             <TypeIcon className="w-4 h-4 text-cyan-400" />}
           </div>
-          <h3 className="font-bold text-white">
-            {item.type === 'video' ? 'Video Content' : 
-             item.type === 'text' ? 'Text Content' : 'Image Content'}
+          <h3 className="font-bold text-white flex items-center gap-1">
+            <span>
+              {item.type === 'video' ? 'Video Content' : 
+               item.type === 'text' ? 'Text Content' : 'Image Content'}
+            </span>
+            <span>💧</span>
           </h3>
         </div>
-        <button onClick={onClose} className="p-1 hover:bg-zinc-800 rounded-lg text-zinc-500 hover:text-white transition-colors">
+        <button onClick={onClose} className="p-1 hover:bg-cyan-900/40 rounded-lg text-cyan-300 hover:text-white transition-colors">
           <X className="w-5 h-5" />
         </button>
       </div>
 
-      <div className="p-4 space-y-6 overflow-y-auto max-h-[calc(100vh-250px)]">
+      <div className="p-4 space-y-6 overflow-y-auto max-h-[calc(100vh-250px)] water-scroll">
         {/* Video URL Section */}
         {item.type === 'video' && (
           <div className="space-y-3">

@@ -32,6 +32,15 @@ body {
   cursor: url('https://res.cloudinary.com/dj52ig0l7/image/upload/v1774334805/mmrvxeymimyucrt9ij2a.png'), auto;
 }
 
+/* Utility to hide scrollbar but allow scrolling */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
 /* Default (local) scrollbar for dropdowns and other containers - thin and subtle */
 ::-webkit-scrollbar {
   width: 6px;
@@ -88,7 +97,142 @@ html::-webkit-scrollbar-thumb:hover {
 }
 
 html, body {
-  background-color: #000000;
   margin: 0;
   padding: 0;
 }
+
+.leaf-separator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 40px 0;
+  color: #4f8f3a;
+}
+
+.leaf-separator::before,
+.leaf-separator::after {
+  content: "";
+  flex: 1;
+  height: 2px;
+  max-width: 220px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    #7abf5a,
+    #4f8f3a
+  );
+}
+
+.leaf-separator::after {
+  background: linear-gradient(
+    to left,
+    transparent,
+    #7abf5a,
+    #4f8f3a
+  );
+}
+
+.leaf-separator span {
+  font-size: 28px;
+  margin: 0 16px;
+  transform: rotate(-15deg);
+  filter: drop-shadow(0 2px 3px rgba(79, 143, 58, 0.4));
+}
+
+/* 🌊 Water themed style for admin panels and sidebar containers */
+.admin-water-bg {
+  background: linear-gradient(135deg, rgba(8, 48, 77, 0.94) 0%, rgba(13, 85, 110, 0.94) 40%, rgba(18, 118, 133, 0.94) 75%, rgba(20, 143, 148, 0.94) 100%);
+  background-size: 200% 200%;
+  animation: water-glow-shimmer 20s ease-in-out infinite;
+  backdrop-filter: blur(30px) saturate(160%);
+  -webkit-backdrop-filter: blur(30px) saturate(160%);
+  border: 1.5px solid rgba(14, 213, 247, 0.35);
+  box-shadow: 
+    0 24px 60px rgba(0, 5, 15, 0.6), 
+    0 0 35px rgba(14, 213, 247, 0.15),
+    inset 0 1px 4px rgba(255, 255, 255, 0.2),
+    inset 0 -4px 15px rgba(14, 213, 247, 0.05);
+  position: relative;
+  overflow: hidden;
+}
+
+.admin-water-bg::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle at 30% 20%, rgba(34, 211, 238, 0.08) 0%, transparent 50%),
+              radial-gradient(circle at 80% 70%, rgba(14, 165, 233, 0.08) 0%, transparent 60%);
+  transform: rotate(0deg);
+  animation: water-waves 30s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes water-glow-shimmer {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes water-waves {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Custom scrollbars inside water panels */
+.water-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.water-scroll::-webkit-scrollbar-track {
+  background: rgba(8, 48, 77, 0.1);
+}
+
+.water-scroll::-webkit-scrollbar-thumb {
+  background: rgba(14, 213, 247, 0.25) !important;
+  border-radius: 9999px;
+  border: 1px solid rgba(14, 213, 247, 0.15);
+}
+
+.water-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(14, 213, 247, 0.45) !important;
+}
+
+/* Liquid water ripples */
+.water-ripple-active {
+  box-shadow: 
+    0 0 0 2px rgba(14, 213, 247, 0.4),
+    0 0 15px rgba(14, 213, 247, 0.25);
+}
+
+.water-ripple-pulse {
+  animation: water-pulse-anim 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes water-pulse-anim {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+    box-shadow: 0 0 0 0px rgba(14, 213, 247, 0.4);
+  }
+  50% {
+    opacity: .95;
+    transform: scale(1.01);
+    box-shadow: 0 0 10px 4px rgba(14, 213, 247, 0.1);
+  }
+}
+
+

@@ -90,9 +90,32 @@
         }
       },
       "required": ["id", "type", "order"]
+    },
+    "CustomOverride": {
+      "title": "CustomOverride",
+      "description": "Visual style or text override for a DOM selector path",
+      "type": "object",
+      "properties": {
+        "text": { "type": "string", "description": "Overridden text display value" },
+        "src": { "type": "string", "description": "Overridden image or media URL path" },
+        "style": {
+          "type": "object",
+          "properties": {
+            "fontSize": { "type": "string" },
+            "color": { "type": "string" },
+            "backgroundColor": { "type": "string" },
+            "opacity": { "type": "integer" },
+            "letterSpacing": { "type": "string" }
+          }
+        }
+      }
     }
   },
   "firestore": {
+    "/custom_overrides/{overrideId}": {
+      "schema": "CustomOverride",
+      "description": "Visual layout and wording overrides on the live website elements"
+    },
     "/users/{userId}": {
       "schema": "User",
       "description": "User profile data"
